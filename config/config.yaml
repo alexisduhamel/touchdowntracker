@@ -1,0 +1,3 @@
+random_seed: 2025 # Random seed for reproducibility
+team_size: 1 # Number of players in the team, set to 1 for single-player mode
+players_file: config/players_indiv.csv
