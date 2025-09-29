@@ -1,17 +1,17 @@
-Player,NAF,Race
-Grimtooth,31521,Skaven
-Ironfist,22409,Undead
-Shadowbane,27894,Lizardmen
-Spike,25187,Dwarf
-Bruiser,30256,Orc
-Slicer,19875,High Elf
-Tackler,33789,Wood Elf
-Foul,24501,Lizardmen
-Bonecrusher,39210,Human
-Stinger,17543,Halfling
-Grit,28890,Orc
-Crusher,35678,Undead
-Mauler,20456,Goblin
-Ripper,31123,Chaos
-Blitz,22987,Wood Elf
-Slammer,37001,Norse
+Player,NAF,Race,Team
+Grimtooth,31521,Skaven,Team 1
+Ironfist,22409,Undead,Team 1
+Shadowbane,27894,Lizardmen,Team 1
+Spike,25187,Dwarf,Team 1
+Bruiser,30256,Orc,Team 2
+Slicer,19875,High Elf,Team 2
+Tackler,33789,Wood Elf,Team 2
+Foul,24501,Lizardmen,Team 2
+Bonecrusher,39210,Human,Team 3
+Stinger,17543,Halfling,Team 3
+Grit,28890,Orc,Team 3
+Crusher,35678,Undead,Team 3
+Mauler,20456,Goblin,Team 4
+Ripper,31123,Chaos,Team 4
+Blitz,22987,Wood Elf,Team 4
+Slammer,37001,Norse,Team 4

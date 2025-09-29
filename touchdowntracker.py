@@ -9,7 +9,7 @@ from pathlib import Path
 import argparse
 import sys
 
-version = 1.0
+version = 0.1
 with open('config/config.yaml', 'r', encoding='utf-8') as f:
     config = yaml.safe_load(f)
 
