@@ -24,20 +24,41 @@ def loadPlayers(filepath='config/players.csv'):
     Each player is keyed by name, with their attributes as values.
     """
     players = {}
+    teams = {}
     path = Path(filepath)
     if not path.exists():
         raise FileNotFoundError(f'{filepath} not found.')
+
     with open(path, mode='r', encoding='utf-8') as file:
         reader = csv.reader(file)
         header = next(reader)
+        has_team = 'Team' in header
+
         for row in reader:
             if len(row) < len(header):
-                continue # skip malformed lines
+                continue  # skip malformed lines
             player_data = dict(zip(header, row))
             name = player_data.get('Player', row[0])
             players[name] = player_data
-    return players
 
+            if has_team:
+                team_name = player_data.get('Team')
+                if not team_name:  # enforce every player has a team
+                    raise ValueError(f"Player '{name}' has no team assigned.")
+                teams.setdefault(team_name, []).append(name)
+
+    # If we have teams, validate team sizes
+    if has_team and teams:
+        team_sizes = {team: len(roster) for team, roster in teams.items()}
+        unique_sizes = set(team_sizes.values())
+        if len(unique_sizes) > 1:
+            mismatch = ", ".join(f"{t}: {s}" for t, s in team_sizes.items())
+            raise ValueError(f"Inconsistent team sizes detected -> {mismatch}")
+        config['team_size'] = unique_sizes.pop()
+        config['teams'] = teams
+
+    return players
+    
 def loadStats(filepath='stats/statistics.csv'):
     """
     Load player statistics from a CSV file into a dictionary.
