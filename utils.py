@@ -146,18 +146,10 @@ def saveStats(stats, filepath='stats/statistics.csv'):
 
     with open(path, mode='w', encoding='utf-8', newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(['Player', 'Rank', 'Points', 'Touchdowns', 'Wins', 'Draws', 'Losses'])
+        writer.writerow(['Player'] + config['statistics'] + config['additional_statistics'])
         for player in stats:
             s = stats[player]
-            writer.writerow([
-                player,
-                s.get('rank', 0),
-                s.get('points', 0),
-                s.get('touchdowns', 0),
-                s.get('wins', 0),
-                s.get('draws', 0),
-                s.get('losses', 0)
-            ])
+            writer.writerow([player] + [s.get(stat, 0) for stat in (config['statistics']+ config['additional_statistics'])])
     log.info(f'{filepath} saved.')
 
 def saveTeamStats(team_stats, filepath='stats/team_statistics.csv'):
@@ -169,14 +161,7 @@ def saveTeamStats(team_stats, filepath='stats/team_statistics.csv'):
 
     with open(path, mode='w', encoding='utf-8', newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(['Team', 'Points', 'Touchdowns', 'Wins', 'Draws', 'Losses', 'Players'])
+        writer.writerow(['Team'] + config['statistics'] + config['additional_statistics'])
         for team, stats in team_stats.items():
-            writer.writerow([
-                team,
-                stats.get('points', 0),
-                stats.get('wins', 0),
-                stats.get('draws', 0),
-                stats.get('losses', 0),
-                stats.get('touchdowns', 0)
-            ])
+            writer.writerow([team] + [stats.get(stat, 0) for stat in (config['statistics'] + config['additional_statistics'])])
     log.info(f'{filepath} saved.')

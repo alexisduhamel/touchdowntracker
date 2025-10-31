@@ -42,27 +42,7 @@ def generatePairing(round_number, players_dict, stats_dict):
             log.error('Odd number of teams, cannot pair all teams without BYE.')
             return []
 
-        # Pair teams so that no BYE is assigned and no repeat matches
-        def team_pairing_dfs(teams, prev_games, pairings=[]):
-            if len(pairings) * 2 == len(teams):
-                return pairings
-            used = set()
-            for t1, t2 in pairings:
-                used.add(t1)
-                used.add(t2)
-            remaining = [t for t in teams if t not in used]
-            if not remaining:
-                return pairings
-            t1 = remaining[0]
-            for i in range(1, len(remaining)):
-                t2 = remaining[i]
-                if [t1, t2] not in prev_games and [t2, t1] not in prev_games:
-                    result = team_pairing_dfs(teams, prev_games, pairings + [(t1, t2)])
-                    if result:
-                        return result
-            return []
-
-        team_pairings = team_pairing_dfs(sorted_teams, prev_team_games)
+        team_pairings = dfs_team_recursive(sorted_teams, prev_team_games)
 
         if not team_pairings or len(team_pairings) * 2 != len(sorted_teams):
             log.error('No valid team pairings found without BYE.')
@@ -203,7 +183,7 @@ def updateStats(players, stats, last_round):
     # Update points, touchdowns, wins, draws, losses
     for player in players:
         for game in last_round:
-            stats.setdefault(player, {"rank": 0, "points": 0, "touchdowns": 0, "wins": 0, "draws": 0, "losses": 0})
+            stats.setdefault(player, {key: 0 for key in config['statistics'] + config['additional_statistics']})
             if (game[0] == player) or (game[1] == player):
                 p1, p2 = game[0], game[1]
                 if (game[2] == '') or (game[3] == ''):
@@ -219,9 +199,9 @@ def updateStats(players, stats, last_round):
                     stats[player]["points"] += 0
                     stats[player]["losses"] += 1
 
-                stats[player]["touchdowns"] += t1 if p1 == player else t2
+                stats[player]["touchdown_scored"] += t1 if p1 == player else t2
                 break
-    ranked_stats = dict(sorted(stats.items(), key=lambda x: (x[1]["points"], x[1]["touchdowns"]), reverse=True))
+    ranked_stats = dict(sorted(stats.items(), key=lambda x: (x[1]["points"], x[1]["touchdown_scored"]), reverse=True))
     for rank, player in enumerate(ranked_stats, start=1):
         ranked_stats[player]["rank"] = rank
     return ranked_stats
