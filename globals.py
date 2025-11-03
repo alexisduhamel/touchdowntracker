@@ -14,7 +14,7 @@ args = parser.parse_args()
 _stats = [
     'rank', 'points',
     'wins', 'draws', 'losses',
-    'touchdown_scored', 'touchdown_received', 'touchdown_diff'
+    'touchdown_scored', 'touchdown_conceded', 'touchdown_diff'
 ]
 
 # Mapping of known tie-breaker to the stats they require
@@ -23,7 +23,7 @@ _tie_break_to_stat = {
     'most_draws'        : 'draws',
     'most_touchdowns'   : 'touchdown_scored',
     'diff_touchdowns'   : 'touchdown_diff',
-    'least_touchdowns'  : 'touchdown_received',
+    'least_touchdowns'  : 'touchdown_conceded',
     'most_casualties'   : 'casualities',
     'most_fouls'        : 'fouls',
     'most_passes'       : 'passes',

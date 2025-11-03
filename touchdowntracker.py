@@ -199,7 +199,9 @@ def updateStats(players, stats, last_round):
                     stats[player]["points"] += 0
                     stats[player]["losses"] += 1
 
+                # Update touchdowns scored/conceded
                 stats[player]["touchdown_scored"] += t1 if p1 == player else t2
+                stats[player]["touchdown_conceded"] += t2 if p1 == player else t1
                 break
     ranked_stats = dict(sorted(stats.items(), key=lambda x: (x[1]["points"], x[1]["touchdown_scored"]), reverse=True))
     for rank, player in enumerate(ranked_stats, start=1):
