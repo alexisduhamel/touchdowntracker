@@ -11,31 +11,34 @@ parser.add_argument('--loglevel', type=str, default='INFO', help='Set logging le
 args = parser.parse_args()
 
 # Base stats to track
-_stats = [
+config['base_statistics'] = [
     'rank', 'points',
     'wins', 'draws', 'losses',
     'touchdown_scored', 'touchdown_conceded', 'touchdown_diff'
 ]
 
+_stats = config['base_statistics'].copy()
+
 # Mapping of known tie-breaker to the stats they require
 _tie_break_to_stat = {
-    'most_wins'         : 'wins',
-    'most_draws'        : 'draws',
-    'most_touchdowns'   : 'touchdown_scored',
-    'diff_touchdowns'   : 'touchdown_diff',
-    'least_touchdowns'  : 'touchdown_conceded',
-    'most_casualties'   : 'casualities',
-    'most_fouls'        : 'fouls',
-    'most_passes'       : 'passes',
-    'highest_tier'      : 'tier',
+    'wins'              : 'wins',
+    'draws'             : 'draws',
+    'offense'           : 'touchdown_scored',
+    'diff'              : 'touchdown_diff',
+    'defense'           : 'touchdown_conceded',
+    'casualties'        : 'casualities',
+    'fouls'             : 'fouls',
+    'passes'            : 'passes',
+    'tier'              : 'tier',
+    'touchdowns'        : 'touchdown_diff',
 }
 
-# Process tie_breakers from config
+# Process individual tie_breakers from config
 for tie_break in config.get('indiv_tie_breakers', []):
     if tie_break in _tie_break_to_stat:
         _stats.append(_tie_break_to_stat[tie_break])
 
-# Accept both 'team_tie_breakers' and the misspelled 'team_time_breakers'
+# Process team tie_breakers from config
 for tie_break in config.get('team_tie_breakers', []):
     if tie_break in _tie_break_to_stat:
         _stats.append(_tie_break_to_stat[tie_break])
@@ -50,5 +53,6 @@ for s in _stats:
 
 # Attach deduplicated statistics to the loaded config
 config['statistics'] = unique_stats
+
 # Include any additional statistics that aren't already in _stats
 config['additional_statistics'] = [stat for stat in config['additional_statistics'] if stat not in _stats]

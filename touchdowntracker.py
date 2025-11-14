@@ -180,29 +180,52 @@ def updateStats(players, stats, last_round):
     Update player statistics based on the results of the last round.
     Returns a dictionary of updated stats, sorted and ranked.
     """
-    # Update points, touchdowns, wins, draws, losses
     for player in players:
         for game in last_round:
-            stats.setdefault(player, {key: 0 for key in config['statistics'] + config['additional_statistics']})
+            stats.setdefault(player, {key: 0 for key in config['base_statistics'] + config['statistics'] + config['additional_statistics']})
             if (game[0] == player) or (game[1] == player):
+                # Update points, wins, draws and losses
                 p1, p2 = game[0], game[1]
                 if (game[2] == '') or (game[3] == ''):
                     raise ValueError('Round still in progress - missing scores')
                 t1, t2 = int(game[2]), int(game[3])
                 if (p1 == player and t1 > t2) or (p2 == player and t2 > t1):
                     stats[player]["points"] += 4
-                    stats[player]["wins"] += 1
+                    stats[player]["wins"]   += 1
                 elif t1 == t2:
                     stats[player]["points"] += 2
-                    stats[player]["draws"] += 1
+                    stats[player]["draws"]  += 1
                 else:
                     stats[player]["points"] += 0
                     stats[player]["losses"] += 1
 
-                # Update touchdowns scored/conceded
-                stats[player]["touchdown_scored"] += t1 if p1 == player else t2
+                # Update touchdowns scored/conceded (always first two columns after player names)
+                stats[player]["touchdown_scored"]   += t1 if p1 == player else t2
                 stats[player]["touchdown_conceded"] += t2 if p1 == player else t1
-                break
+                stats[player]["touchdown_diff"]     = stats[player]["touchdown_scored"] - stats[player]["touchdown_conceded"]
+                
+                # Get column headers from first row
+                with open(f'rounds/round{round_number-1}.csv', 'r', encoding='utf-8') as f:
+                    headers = next(csv.reader(f))
+                
+                # Update stats based on header positions
+                for stat in config['statistics'] + config['additional_statistics']:
+                    if stat not in config['base_statistics']: # Exclude mandatory stats
+                        # Look for both statA and statB variations in headers
+                        stat_a = f"{stat}A"
+                        stat_b = f"{stat}B"
+                        
+                        if stat_a in headers and stat_b in headers:
+                            idx_a = headers.index(stat_a)
+                            idx_b = headers.index(stat_b)
+                            log.info(f'{stat_a}, {stat_b}, {idx_a}, {idx_b}')
+                            # Add stat value based on whether player is A or B
+                            if p1 == player:
+                                stats[player][stat] += float(game[idx_a]) if game[idx_a] else 0
+                            else:
+                                stats[player][stat] += float(game[idx_b]) if game[idx_b] else 0
+                        else:
+                            log.warning(f'Statistic {stat} not found in headers')
     ranked_stats = dict(sorted(stats.items(), key=lambda x: (x[1]["points"], x[1]["touchdown_scored"]), reverse=True))
     for rank, player in enumerate(ranked_stats, start=1):
         ranked_stats[player]["rank"] = rank

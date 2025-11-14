@@ -34,20 +34,27 @@ team_tie_breakers: # Team ranking tie breakers -- ignore if team_size = 1
   - "wins"
   - "draws"
   - "tier"
-  - "touchdowns"
+  - "offense"
 
 ###################################################################################
 # Output settings
 
 ## Statistics tracked individually and per team
-##   - "touchdowns+"    : Tracked by default 
-##   - "casualities"    : Tracked optionally or by default if 'most_casualties' tie break is selected
-##   - "fouls"          : Tracked optionally or by default if 'most_fouls' tie break is selected
-##   - "passes"         : Tracked optionally or by default if 'most_passes' tie break is selected
-##   - "tier"           : Tracked optionally or by default if 'highest_tier' tie break is selected
+##   - "points"             : Tracked by default
+##   - "rank"               : Tracked by default
+##   - "wins"               : Tracked by default
+##   - "draws"              : Tracked by default
+##   - "losses"             : Tracked by default
+##   - "touchdowns_scored"  : Tracked by default 
+##   - "touchdowns_conceded": Tracked by default
+##   - "touchdown_diff"     : Tracked by default
+##   - "casualities"        : Tracked optionally or by default if 'most_casualties' tie break is selected
+##   - "fouls"              : Tracked optionally or by default if 'most_fouls' tie break is selected
+##   - "passes"             : Tracked optionally or by default if 'most_passes' tie break is selected
+##   - "tier"               : Tracked optionally or by default if 'highest_tier' tie break is selected
 
-# Additional Statistics will not affect tie breaks but will be included in the final output
+# Additional Statistics will not affect tie breaks but will be included in the final output of both individual and team rankings
+# Add them here if you want to track them without impacting your rankings
 additional_statistics:
-  - "wins"
   - "casualities"
   - "fouls" 

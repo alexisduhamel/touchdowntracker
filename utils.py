@@ -1,6 +1,7 @@
 
 import csv
 import logging as log
+import yaml
 
 from pathlib import Path
 from globals import *
@@ -43,6 +44,17 @@ def loadPlayers(filepath='config/players.csv'):
             raise ValueError(f"Inconsistent team sizes detected -> {mismatch}")
         config['team_size'] = unique_sizes.pop()
         config['teams'] = teams
+    
+    # If we track tier, assign values based on tiers.yaml
+
+    if 'tier' in config['statistics']:
+        with open('config/tiers.yaml', 'r', encoding='utf-8') as f:
+            tiers = yaml.safe_load(f)
+
+        for player in players:
+            if players[player]['Race'] not in tiers:
+                raise ValueError(f"Race '{players[player]['Race']}' for player '{player}' has no tier defined in tiers.yaml.")
+            players[player]['tier'] = tiers[players[player]['Race']]
 
     return players
     
@@ -92,19 +104,12 @@ def loadRound(filepath='rounds/round1.csv'):
     path = Path(filepath)
     if not path.exists():
         raise FileNotFoundError(f'{filepath} not found')
-    team_size = int(config.get('team_size', 1))
     with open(path, mode='r', encoding='utf-8') as file:
         reader = csv.reader(file)
         next(reader) # skip first line
         for row in reader:
-            if team_size > 1:
-                if len(row) < 6:
-                    continue # skip malformed lines
-                round.append([row[2], row[3], row[4], row[5]]) # PlayerA, PlayerB, TouchdownA, TouchdownB
-            else:
-                if len(row) < 4:
-                    continue # skip malformed lines
-                round.append([row[0], row[1], row[2], row[3]])
+            log.info(f'Row: {row}')
+            round.append(row)
     return round
 
 def savePairing(round_number, pairing):
@@ -125,12 +130,18 @@ def savePairing(round_number, pairing):
     with open(path, mode='w', encoding='utf-8', newline="") as file:
         writer = csv.writer(file)
         if team_size > 1:
-            writer.writerow(['TeamA', 'TeamB', 'PlayerA', 'PlayerB', 'TouchdownA', 'TouchdownB'])
+            # Write header with stats columns based on tie breaks and additional stats
+            header = ['TeamA', 'TeamB', 'PlayerA', 'PlayerB', 'TouchdownA', 'TouchdownB']
+            for stat in config['statistics']+config['additional_statistics']:
+                if stat not in config['base_statistics']:
+                    header.append(f'{stat}A')
+                    header.append(f'{stat}B') 
+            writer.writerow(header)
             for game in pairing:
                 pA, pB = game[0], game[1]
                 teamA = players_dict.get(pA, {}).get('Team', '') if pA != 'BYE' else 'BYE'
                 teamB = players_dict.get(pB, {}).get('Team', '') if pB != 'BYE' else 'BYE'
-                writer.writerow([teamA, teamB, pA, pB, '', ''])
+                writer.writerow([teamA, teamB, pA, pB, '', '']+['', '']*(len(config['statistics'])+len(config['additional_statistics']) - len(config['base_statistics'])))
         else:
             writer.writerow(['PlayerA', 'PlayerB', 'TouchdownA', 'TouchdownB'])
             for game in pairing:

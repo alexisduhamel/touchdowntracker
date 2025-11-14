@@ -23,10 +23,16 @@ for i, filename in enumerate(files, start=1):
                 # Ensure row is long enough
                 while len(row) < len(header):
                     row.append('')
-                if idx_a is not None:
-                    row[idx_a] = str(random.randint(0, 2))
-                if idx_b is not None:
-                    row[idx_b] = str(random.randint(0, 2))
+                # For every empty field, assign a random int between 0 and 4
+                for i in range(len(header)):
+                    try:
+                        cell = row[i]
+                    except IndexError:
+                        # Shouldn't happen due to padding, but guard anyway
+                        row.append(str(random.randint(0, 4)))
+                        continue
+                    if isinstance(cell, str) and cell.strip() == '':
+                        row[i] = str(random.randint(0, 4))
                 rows.append(row)
     with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
