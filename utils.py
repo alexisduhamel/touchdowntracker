@@ -108,7 +108,6 @@ def loadRound(filepath='rounds/round1.csv'):
         reader = csv.reader(file)
         next(reader) # skip first line
         for row in reader:
-            log.info(f'Row: {row}')
             round.append(row)
     return round
 
@@ -159,6 +158,7 @@ def saveStats(stats, filepath='stats/statistics.csv'):
         writer = csv.writer(file)
         writer.writerow(['Player'] + config['statistics'] + config['additional_statistics'])
         for player in stats:
+            log.debug(f'Saving stats for player: {player} : {stats[player]}')
             s = stats[player]
             writer.writerow([player] + [s.get(stat, 0) for stat in (config['statistics']+ config['additional_statistics'])])
     log.info(f'{filepath} saved.')

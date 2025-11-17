@@ -21,11 +21,6 @@ def generatePairing(round_number, players_dict, stats_dict):
         log.debug('Team Swiss pairing mode')
         team_stats = updateTeamStats(players_dict, stats_dict)
         teams = list(team_stats.keys())
-        sorted_teams = sorted(teams, key=lambda t: (
-            team_stats[t]['points'],
-            team_stats[t]['wins'],
-            team_stats[t]['draws'],
-            team_stats[t]['touchdowns']), reverse=True)
 
         # Find previous team matchups
         prev_team_games = []
@@ -38,13 +33,13 @@ def generatePairing(round_number, players_dict, stats_dict):
                     prev_team_games.append([t1, t2])
 
         # Ensure even number of teams, no BYE allowed
-        if len(sorted_teams) % 2 != 0:
+        if len(teams) % 2 != 0:
             log.error('Odd number of teams, cannot pair all teams without BYE.')
             return []
 
-        team_pairings = dfs_team_recursive(sorted_teams, prev_team_games)
+        team_pairings = dfs_team_recursive(teams, prev_team_games)
 
-        if not team_pairings or len(team_pairings) * 2 != len(sorted_teams):
+        if not team_pairings or len(team_pairings) * 2 != len(teams):
             log.error('No valid team pairings found without BYE.')
             return []
 
@@ -183,12 +178,13 @@ def updateStats(players, stats, last_round):
     for player in players:
         for game in last_round:
             stats.setdefault(player, {key: 0 for key in config['base_statistics'] + config['statistics'] + config['additional_statistics']})
-            if (game[0] == player) or (game[1] == player):
+            if (game[2] == player) or (game[3] == player):
                 # Update points, wins, draws and losses
-                p1, p2 = game[0], game[1]
-                if (game[2] == '') or (game[3] == ''):
+                p1, p2 = game[2], game[3]
+                if (game[4] == '') or (game[5] == ''):
                     raise ValueError('Round still in progress - missing scores')
-                t1, t2 = int(game[2]), int(game[3])
+                t1, t2 = int(game[4]), int(game[5])
+                log.debug(f'Updating W/D/L and touchdowns for player {player}')
                 if (p1 == player and t1 > t2) or (p2 == player and t2 > t1):
                     stats[player]["points"] += 4
                     stats[player]["wins"]   += 1
@@ -218,15 +214,33 @@ def updateStats(players, stats, last_round):
                         if stat_a in headers and stat_b in headers:
                             idx_a = headers.index(stat_a)
                             idx_b = headers.index(stat_b)
-                            log.info(f'{stat_a}, {stat_b}, {idx_a}, {idx_b}')
                             # Add stat value based on whether player is A or B
                             if p1 == player:
+                                log.debug(f'Updating stat {stat} for player {player} from column {idx_a}')
                                 stats[player][stat] += float(game[idx_a]) if game[idx_a] else 0
                             else:
+                                log.debug(f'Updating stat {stat} for player {player} from column {idx_b}')
                                 stats[player][stat] += float(game[idx_b]) if game[idx_b] else 0
                         else:
                             log.warning(f'Statistic {stat} not found in headers')
-    ranked_stats = dict(sorted(stats.items(), key=lambda x: (x[1]["points"], x[1]["touchdown_scored"]), reverse=True))
+    # Build sort key from indiv_tie_breakers
+    from globals import _tie_break_to_stat
+    sort_key_stats = []
+    for tie_break in config.get('indiv_tie_breakers', []):
+        if tie_break in _tie_break_to_stat:
+            log.debug(f'Sorting by tie breaker: {tie_break}')
+            sort_key_stats.append(_tie_break_to_stat[tie_break])
+    
+    # If no tie breakers defined, fall back to points and touchdown_scored
+    if not sort_key_stats:
+        sort_key_stats = ['points', 'touchdown_scored']
+    
+    # Sort by the dynamic tie breaker keys
+    def sort_key(item):
+        player_stats = item[1]
+        return tuple(player_stats.get(stat, 0) for stat in sort_key_stats)
+    
+    ranked_stats = dict(sorted(stats.items(), key=sort_key, reverse=True))
     for rank, player in enumerate(ranked_stats, start=1):
         ranked_stats[player]["rank"] = rank
     return ranked_stats
@@ -234,7 +248,7 @@ def updateStats(players, stats, last_round):
 def updateTeamStats(players_dict, stats_dict):
     """
     Aggregate player statistics into team statistics.
-    Returns a dictionary of team stats, sorted by performance.
+    Returns a dictionary of team stats, sorted by performance using team_tie_breakers.
     """
     team_stats = {}
     for player, pdata in players_dict.items():
@@ -243,31 +257,33 @@ def updateTeamStats(players_dict, stats_dict):
             continue
         pstats = stats_dict.get(player, {})
         if team not in team_stats:
-            team_stats[team] = {
-                'points': 0,
-                'touchdowns': 0,
-                'wins': 0,
-                'draws': 0,
-                'losses': 0
-            }
-        team_stats[team]['points'] += pstats.get('points', 0)
-        team_stats[team]['wins'] += pstats.get('wins', 0)
-        team_stats[team]['draws'] += pstats.get('draws', 0)
-        team_stats[team]['losses'] += pstats.get('losses', 0)
-        team_stats[team]['touchdowns'] += pstats.get('touchdowns', 0)     
+            team_stats[team] = {key: 0 for key in config['base_statistics'] + config['statistics'] + config['additional_statistics']}
+        
+        # Aggregate all stats from player to team
+        for stat_key in team_stats[team]:
+            team_stats[team][stat_key] += pstats.get(stat_key, 0)
     
-    # Sort teams by points, wins, draws, touchdowns (descending)
-    sorted_teams = sorted(
-        team_stats.items(),
-        key=lambda x: (
-            x[1]['points'],
-            x[1]['wins'],
-            x[1]['draws'],
-            x[1]['touchdowns']
-        ),
-        reverse=True
-    )
-    return dict(sorted_teams)
+    # Build sort key from team_tie_breakers
+    sort_key_stats = []
+    for tie_break in config.get('team_tie_breakers', []):
+        from globals import _tie_break_to_stat
+        if tie_break in _tie_break_to_stat:
+            log.debug(f'Sorting teams by tie breaker: {tie_break}')
+            sort_key_stats.append(_tie_break_to_stat[tie_break])
+    
+    # If no tie breakers defined, fall back to points and touchdown_scored
+    if not sort_key_stats:
+        sort_key_stats = ['points', 'touchdown_scored']
+    
+    # Sort by the dynamic tie breaker keys
+    def sort_key(item):
+        team_stats_vals = item[1]
+        return tuple(team_stats_vals.get(stat, 0) for stat in sort_key_stats)
+    
+    sorted_teams = dict(sorted(team_stats.items(), key=sort_key, reverse=True))
+    for rank, team in enumerate(sorted_teams, start=1):
+        sorted_teams[team]["rank"] = rank
+    return sorted_teams
 
 if __name__ == '__main__':
 
@@ -284,12 +300,13 @@ if __name__ == '__main__':
     round_number = len(os.listdir('rounds/'))+1
     log.info(f'Round number: {round_number}')
     if (round_number>1):
-        log.info(f'Computing statistics...')
+        log.info(f'Computing individual statistics...')
         stats_dict = loadStats()
         last_round = loadRound(f'rounds/round1.csv')
         stats_dict = updateStats(players_dict, stats_dict, last_round)
         saveStats(stats_dict)
         if config.get('team_size', 1) > 1:
+            log.info(f'Computing team statistics...')
             team_stats = updateTeamStats(players_dict, stats_dict)
             saveTeamStats(team_stats)
     else:
