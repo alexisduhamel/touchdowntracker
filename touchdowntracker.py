@@ -3,101 +3,10 @@
 import os
 import random
 import csv
-import yaml
 import logging as log
-from pathlib import Path
-import argparse
-import sys
 
-version = 0.1
-with open('config/config.yaml', 'r', encoding='utf-8') as f:
-    config = yaml.safe_load(f)
-
-# Global argparse setup
-parser = argparse.ArgumentParser(description='Touchdown Tracker')
-parser.add_argument('--loglevel', type=str, default='INFO', help='Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)')
-args = parser.parse_args()
-
-def loadPlayers(filepath='config/players.csv'):
-    """
-    Load player data from a CSV file into a dictionary.
-    Each player is keyed by name, with their attributes as values.
-    """
-    players = {}
-    path = Path(filepath)
-    if not path.exists():
-        raise FileNotFoundError(f'{filepath} not found.')
-    with open(path, mode='r', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        header = next(reader)
-        for row in reader:
-            if len(row) < len(header):
-                continue # skip malformed lines
-            player_data = dict(zip(header, row))
-            name = player_data.get('Player', row[0])
-            players[name] = player_data
-    return players
-
-def loadStats(filepath='stats/statistics.csv'):
-    """
-    Load player statistics from a CSV file into a dictionary.
-    If the file does not exist, create it with the appropriate header.
-    """
-    stats = {}
-    path = Path(filepath)
-    if not path.exists():
-        # Create file with header
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, mode='w', encoding='utf-8', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['Player', 'Rank', 'Points', 'Touchdowns', 'Wins', 'Draws', 'Losses'])
-        return stats
-    with open(path, mode='r', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        next(reader) # skip first line
-        for row in reader:
-            if len(row) < 7:
-                continue # skip malformed lines
-            name = row[0]
-            rank = int(row[1])
-            points = int(row[2])
-            touchdowns = int(row[3])
-            wins = int(row[4])
-            draws = int(row[5])
-            losses = int(row[6])
-            stats[name] = {
-                "rank": rank,
-                "points": points,
-                "touchdowns": touchdowns,
-                "wins": wins,
-                "draws": draws,
-                "losses": losses
-            }
-    return stats
-
-def loadRound(filepath='rounds/round1.csv'):
-    """
-    Load a round's results from a CSV file.
-    Returns a list of match results for the round.
-    """
-    round = []
-    path = Path(filepath)
-    if not path.exists():
-        raise FileNotFoundError(f'{filepath} not found')
-    team_size = int(config.get('team_size', 1))
-    with open(path, mode='r', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        next(reader) # skip first line
-        for row in reader:
-            if team_size > 1:
-                if len(row) < 6:
-                    continue # skip malformed lines
-                round.append([row[2], row[3], row[4], row[5]]) # PlayerA, PlayerB, TouchdownA, TouchdownB
-            else:
-                if len(row) < 4:
-                    continue # skip malformed lines
-                round.append([row[0], row[1], row[2], row[3]])
-    return round
+from globals import *
+from utils import *
 
 def generatePairing(round_number, players_dict, stats_dict):
     """
@@ -112,11 +21,6 @@ def generatePairing(round_number, players_dict, stats_dict):
         log.debug('Team Swiss pairing mode')
         team_stats = updateTeamStats(players_dict, stats_dict)
         teams = list(team_stats.keys())
-        sorted_teams = sorted(teams, key=lambda t: (
-            team_stats[t]['points'],
-            team_stats[t]['wins'],
-            team_stats[t]['draws'],
-            team_stats[t]['touchdowns']), reverse=True)
 
         # Find previous team matchups
         prev_team_games = []
@@ -129,33 +33,13 @@ def generatePairing(round_number, players_dict, stats_dict):
                     prev_team_games.append([t1, t2])
 
         # Ensure even number of teams, no BYE allowed
-        if len(sorted_teams) % 2 != 0:
+        if len(teams) % 2 != 0:
             log.error('Odd number of teams, cannot pair all teams without BYE.')
             return []
 
-        # Pair teams so that no BYE is assigned and no repeat matches
-        def team_pairing_dfs(teams, prev_games, pairings=[]):
-            if len(pairings) * 2 == len(teams):
-                return pairings
-            used = set()
-            for t1, t2 in pairings:
-                used.add(t1)
-                used.add(t2)
-            remaining = [t for t in teams if t not in used]
-            if not remaining:
-                return pairings
-            t1 = remaining[0]
-            for i in range(1, len(remaining)):
-                t2 = remaining[i]
-                if [t1, t2] not in prev_games and [t2, t1] not in prev_games:
-                    result = team_pairing_dfs(teams, prev_games, pairings + [(t1, t2)])
-                    if result:
-                        return result
-            return []
+        team_pairings = dfs_team_recursive(teams, prev_team_games)
 
-        team_pairings = team_pairing_dfs(sorted_teams, prev_team_games)
-
-        if not team_pairings or len(team_pairings) * 2 != len(sorted_teams):
+        if not team_pairings or len(team_pairings) * 2 != len(teams):
             log.error('No valid team pairings found without BYE.')
             return []
 
@@ -291,26 +175,72 @@ def updateStats(players, stats, last_round):
     Update player statistics based on the results of the last round.
     Returns a dictionary of updated stats, sorted and ranked.
     """
-    # Update points, touchdowns, wins, draws, losses
     for player in players:
         for game in last_round:
-            stats.setdefault(player, {"rank": 0, "points": 0, "touchdowns": 0, "wins": 0, "draws": 0, "losses": 0})
-            if (game[0] == player) or (game[1] == player):
-                p1, p2 = game[0], game[1]
-                t1, t2 = int(game[2]), int(game[3])
+            stats.setdefault(player, {key: 0 for key in config['base_statistics'] + config['statistics'] + config['additional_statistics']})
+            if (game[2] == player) or (game[3] == player):
+                # Update points, wins, draws and losses
+                p1, p2 = game[2], game[3]
+                if (game[4] == '') or (game[5] == ''):
+                    raise ValueError('Round still in progress - missing scores')
+                t1, t2 = int(game[4]), int(game[5])
+                log.debug(f'Updating W/D/L and touchdowns for player {player}')
                 if (p1 == player and t1 > t2) or (p2 == player and t2 > t1):
                     stats[player]["points"] += 4
-                    stats[player]["wins"] += 1
+                    stats[player]["wins"]   += 1
                 elif t1 == t2:
                     stats[player]["points"] += 2
-                    stats[player]["draws"] += 1
+                    stats[player]["draws"]  += 1
                 else:
                     stats[player]["points"] += 0
                     stats[player]["losses"] += 1
 
-                stats[player]["touchdowns"] += t1 if p1 == player else t2
-                break
-    ranked_stats = dict(sorted(stats.items(), key=lambda x: (x[1]["points"], x[1]["touchdowns"]), reverse=True))
+                # Update touchdowns scored/conceded (always first two columns after player names)
+                stats[player]["touchdown_scored"]   += t1 if p1 == player else t2
+                stats[player]["touchdown_conceded"] += t2 if p1 == player else t1
+                stats[player]["touchdown_diff"]     = stats[player]["touchdown_scored"] - stats[player]["touchdown_conceded"]
+                
+                # Get column headers from first row
+                with open(f'rounds/round{round_number-1}.csv', 'r', encoding='utf-8') as f:
+                    headers = next(csv.reader(f))
+                
+                # Update stats based on header positions
+                for stat in config['statistics'] + config['additional_statistics']:
+                    if stat not in config['base_statistics']: # Exclude mandatory stats
+                        # Look for both statA and statB variations in headers
+                        stat_a = f"{stat}A"
+                        stat_b = f"{stat}B"
+                        
+                        if stat_a in headers and stat_b in headers:
+                            idx_a = headers.index(stat_a)
+                            idx_b = headers.index(stat_b)
+                            # Add stat value based on whether player is A or B
+                            if p1 == player:
+                                log.debug(f'Updating stat {stat} for player {player} from column {idx_a}')
+                                stats[player][stat] += float(game[idx_a]) if game[idx_a] else 0
+                            else:
+                                log.debug(f'Updating stat {stat} for player {player} from column {idx_b}')
+                                stats[player][stat] += float(game[idx_b]) if game[idx_b] else 0
+                        else:
+                            log.warning(f'Statistic {stat} not found in headers')
+    # Build sort key from indiv_tie_breakers
+    from globals import _tie_break_to_stat
+    sort_key_stats = []
+    for tie_break in config.get('indiv_tie_breakers', []):
+        if tie_break in _tie_break_to_stat:
+            log.debug(f'Sorting by tie breaker: {tie_break}')
+            sort_key_stats.append(_tie_break_to_stat[tie_break])
+    
+    # If no tie breakers defined, fall back to points and touchdown_scored
+    if not sort_key_stats:
+        sort_key_stats = ['points', 'touchdown_scored']
+    
+    # Sort by the dynamic tie breaker keys
+    def sort_key(item):
+        player_stats = item[1]
+        return tuple(player_stats.get(stat, 0) for stat in sort_key_stats)
+    
+    ranked_stats = dict(sorted(stats.items(), key=sort_key, reverse=True))
     for rank, player in enumerate(ranked_stats, start=1):
         ranked_stats[player]["rank"] = rank
     return ranked_stats
@@ -318,7 +248,7 @@ def updateStats(players, stats, last_round):
 def updateTeamStats(players_dict, stats_dict):
     """
     Aggregate player statistics into team statistics.
-    Returns a dictionary of team stats, sorted by performance.
+    Returns a dictionary of team stats, sorted by performance using team_tie_breakers.
     """
     team_stats = {}
     for player, pdata in players_dict.items():
@@ -327,105 +257,33 @@ def updateTeamStats(players_dict, stats_dict):
             continue
         pstats = stats_dict.get(player, {})
         if team not in team_stats:
-            team_stats[team] = {
-                'points': 0,
-                'touchdowns': 0,
-                'wins': 0,
-                'draws': 0,
-                'losses': 0
-            }
-        team_stats[team]['points'] += pstats.get('points', 0)
-        team_stats[team]['wins'] += pstats.get('wins', 0)
-        team_stats[team]['draws'] += pstats.get('draws', 0)
-        team_stats[team]['losses'] += pstats.get('losses', 0)
-        team_stats[team]['touchdowns'] += pstats.get('touchdowns', 0)     
+            team_stats[team] = {key: 0 for key in config['base_statistics'] + config['statistics'] + config['additional_statistics']}
+        
+        # Aggregate all stats from player to team
+        for stat_key in team_stats[team]:
+            team_stats[team][stat_key] += pstats.get(stat_key, 0)
     
-    # Sort teams by points, wins, draws, touchdowns (descending)
-    sorted_teams = sorted(
-        team_stats.items(),
-        key=lambda x: (
-            x[1]['points'],
-            x[1]['wins'],
-            x[1]['draws'],
-            x[1]['touchdowns']
-        ),
-        reverse=True
-    )
-    return dict(sorted_teams)
-
-def savePairing(round_number, pairing):
-    """
-    Save the pairings for a round to a CSV file.
-    Handles both team and individual formats.
-    """
-    filepath = f'rounds/round{round_number}.csv'
-    path = Path(filepath)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Need access to players_dict for team info
-    from inspect import currentframe
-    frame = currentframe()
-    players_dict = frame.f_back.f_locals.get('players_dict', {})
-    team_size = int(config.get('team_size', 1))
-
-    with open(path, mode='w', encoding='utf-8', newline="") as file:
-        writer = csv.writer(file)
-        if team_size > 1:
-            writer.writerow(['TeamA', 'TeamB', 'PlayerA', 'PlayerB', 'TouchdownA', 'TouchdownB'])
-            for game in pairing:
-                pA, pB = game[0], game[1]
-                teamA = players_dict.get(pA, {}).get('Team', '') if pA != 'BYE' else 'BYE'
-                teamB = players_dict.get(pB, {}).get('Team', '') if pB != 'BYE' else 'BYE'
-                writer.writerow([teamA, teamB, pA, pB, '', ''])
-        else:
-            writer.writerow(['PlayerA', 'PlayerB', 'TouchdownA', 'TouchdownB'])
-            for game in pairing:
-                writer.writerow([game[0], game[1], '', ''])
-    log.info(f'{path} saved.')
-
-def saveStats(stats, filepath='stats/statistics.csv'):
-    """
-    Save player statistics to a CSV file.
-    """
-    path = Path(filepath)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(path, mode='w', encoding='utf-8', newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(['Player', 'Rank', 'Points', 'Touchdowns', 'Wins', 'Draws', 'Losses'])
-        for player in stats:
-            s = stats[player]
-            writer.writerow([
-                player,
-                s.get('rank', 0),
-                s.get('points', 0),
-                s.get('touchdowns', 0),
-                s.get('wins', 0),
-                s.get('draws', 0),
-                s.get('losses', 0)
-            ])
-    log.info(f'{filepath} saved.')
-
-def saveTeamStats(team_stats, filepath='stats/team_statistics.csv'):
-    """
-    Save team statistics to a CSV file.
-    """
-    path = Path(filepath)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(path, mode='w', encoding='utf-8', newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(['Team', 'Points', 'Touchdowns', 'Wins', 'Draws', 'Losses', 'Players'])
-        for team, stats in team_stats.items():
-            writer.writerow([
-                team,
-                stats.get('points', 0),
-                stats.get('wins', 0),
-                stats.get('draws', 0),
-                stats.get('losses', 0),
-                stats.get('touchdowns', 0)
-            ])
-    log.info(f'{filepath} saved.')
+    # Build sort key from team_tie_breakers
+    sort_key_stats = []
+    for tie_break in config.get('team_tie_breakers', []):
+        from globals import _tie_break_to_stat
+        if tie_break in _tie_break_to_stat:
+            log.debug(f'Sorting teams by tie breaker: {tie_break}')
+            sort_key_stats.append(_tie_break_to_stat[tie_break])
+    
+    # If no tie breakers defined, fall back to points and touchdown_scored
+    if not sort_key_stats:
+        sort_key_stats = ['points', 'touchdown_scored']
+    
+    # Sort by the dynamic tie breaker keys
+    def sort_key(item):
+        team_stats_vals = item[1]
+        return tuple(team_stats_vals.get(stat, 0) for stat in sort_key_stats)
+    
+    sorted_teams = dict(sorted(team_stats.items(), key=sort_key, reverse=True))
+    for rank, team in enumerate(sorted_teams, start=1):
+        sorted_teams[team]["rank"] = rank
+    return sorted_teams
 
 if __name__ == '__main__':
 
@@ -442,12 +300,13 @@ if __name__ == '__main__':
     round_number = len(os.listdir('rounds/'))+1
     log.info(f'Round number: {round_number}')
     if (round_number>1):
-        log.info(f'Computing statistics...')
+        log.info(f'Computing individual statistics...')
         stats_dict = loadStats()
         last_round = loadRound(f'rounds/round1.csv')
         stats_dict = updateStats(players_dict, stats_dict, last_round)
         saveStats(stats_dict)
         if config.get('team_size', 1) > 1:
+            log.info(f'Computing team statistics...')
             team_stats = updateTeamStats(players_dict, stats_dict)
             saveTeamStats(team_stats)
     else:

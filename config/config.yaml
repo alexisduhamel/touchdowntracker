@@ -1,3 +1,60 @@
-random_seed: 2025 # Random seed for reproducibility
-team_size: 4 # Number of players in the team, set to 1 for single-player mode
-players_file: config/players_team.csv
+###################################################################################
+# Global settings for Touchdown Tracker
+log_level     : INFO # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+random_seed   : 2025 # Random seed for reproducibility
+
+###################################################################################
+# Player settings
+team_size     : 4 # Number of players in the team, set to 1 for single-player mode
+players_file  : config/players_team.csv
+
+###################################################################################
+# Tie breaker settings
+
+## List of tie breakers:
+##   - "wins"        : Player with the most wins wins
+##   - "draws"       : Player with the most draws wins
+##   - "offense"     : Player with the most scored touchdowns wins (Best offense)
+##   - "diff"        : Player with the highest difference between scored and received touchdowns wins
+##   - "defense"     : Player with the least received touchdowns wins (Best defense)
+##   - "casualties"  : Player with the most casualties wins
+##   - "fouls"       : Player with the most fouls wins
+##   - "passes"      : Player with the most passes wins
+##   - "tier"        : Player with the higher tier (or sum of tier) wins (cf. config/tiers.yaml)
+
+# Order of tie breakers to apply
+
+indiv_tie_breakers: # Individual ranking tie breakers
+  - "wins"
+  - "draws"
+  - "tier"
+  - "offense"
+
+team_tie_breakers: # Team ranking tie breakers -- ignore if team_size = 1
+  - "wins"
+  - "draws"
+  - "tier"
+  - "offense"
+
+###################################################################################
+# Output settings
+
+## Statistics tracked individually and per team
+##   - "points"             : Tracked by default
+##   - "rank"               : Tracked by default
+##   - "wins"               : Tracked by default
+##   - "draws"              : Tracked by default
+##   - "losses"             : Tracked by default
+##   - "touchdowns_scored"  : Tracked by default 
+##   - "touchdowns_conceded": Tracked by default
+##   - "touchdown_diff"     : Tracked by default
+##   - "casualities"        : Tracked optionally or by default if 'most_casualties' tie break is selected
+##   - "fouls"              : Tracked optionally or by default if 'most_fouls' tie break is selected
+##   - "passes"             : Tracked optionally or by default if 'most_passes' tie break is selected
+##   - "tier"               : Tracked optionally or by default if 'highest_tier' tie break is selected
+
+# Additional Statistics will not affect tie breaks but will be included in the final output of both individual and team rankings
+# Add them here if you want to track them without impacting your rankings
+additional_statistics:
+  - "casualities"
+  - "fouls" 
