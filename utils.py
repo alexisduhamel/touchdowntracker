@@ -61,38 +61,52 @@ def loadPlayers(filepath='config/players.csv'):
 def loadStats(filepath='stats/statistics.csv'):
     """
     Load player statistics from a CSV file into a dictionary.
-    If the file does not exist, create it with the appropriate header.
+    If the file does not exist, create it with the appropriate header
+    based on config['statistics'] and config['additional_statistics'].
     """
     stats = {}
     path = Path(filepath)
+    stats_header = ['Player'] + config.get('statistics', []) + config.get('additional_statistics', [])
+
     if not path.exists():
-        # Create file with header
+        # Create file with header from config
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, mode='w', encoding='utf-8', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['Player', 'Rank', 'Points', 'Touchdowns', 'Wins', 'Draws', 'Losses'])
+            writer.writerow(stats_header)
         return stats
+
     with open(path, mode='r', encoding='utf-8') as file:
         reader = csv.reader(file)
-        next(reader) # skip first line
+        try:
+            header = next(reader)
+        except StopIteration:
+            return stats  # empty file
+
+        stat_names = header[1:]  # everything after 'Player'
         for row in reader:
-            if len(row) < 7:
-                continue # skip malformed lines
+            if not row or len(row) == 0:
+                continue
             name = row[0]
-            rank = int(row[1])
-            points = int(row[2])
-            touchdowns = int(row[3])
-            wins = int(row[4])
-            draws = int(row[5])
-            losses = int(row[6])
-            stats[name] = {
-                "rank": rank,
-                "points": points,
-                "touchdowns": touchdowns,
-                "wins": wins,
-                "draws": draws,
-                "losses": losses
-            }
+            # build dict for this player from header columns, filling missing with 0
+            player_stats = {}
+            for idx, stat in enumerate(stat_names):
+                col_idx = idx + 1
+                val = row[col_idx] if col_idx < len(row) else ''
+                # normalize empty -> 0, try int then float, else keep string
+                if val == '':
+                    conv = 0
+                else:
+                    try:
+                        conv = int(val)
+                    except ValueError:
+                        try:
+                            conv = float(val)
+                        except ValueError:
+                            conv = val
+                player_stats[stat] = conv
+            stats[name] = player_stats
+
     return stats
 
 def loadRound(filepath='rounds/round1.csv'):

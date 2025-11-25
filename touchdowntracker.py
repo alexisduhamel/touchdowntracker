@@ -27,30 +27,38 @@ def generatePairing(round_number, players_dict, stats_dict):
         for i in range(1, len(os.listdir('rounds/'))+1):
             round = loadRound(f'rounds/round{i}.csv')
             for game in round:
-                t1 = players_dict.get(game[0], {}).get('Team')
-                t2 = players_dict.get(game[1], {}).get('Team')
+                t1 = game[0]
+                t2 = game[1]
                 if t1 and t2:
                     prev_team_games.append([t1, t2])
 
         # Ensure even number of teams, no BYE allowed
-        if len(teams) % 2 != 0:
-            log.error('Odd number of teams, cannot pair all teams without BYE.')
-            return []
-
+        #if len(teams) % 2 != 0:
+        #    log.error('Odd number of teams, cannot pair all teams without BYE.')
+        #    return []
         team_pairings = dfs_team_recursive(teams, prev_team_games)
 
-        if not team_pairings or len(team_pairings) * 2 != len(teams):
-            log.error('No valid team pairings found without BYE.')
-            return []
+        #if not team_pairings or len(team_pairings) * 2 != len(teams):
+        #    log.error('No valid team pairings found without BYE.')
+        #    return []
 
         # For each team pairing, match individual players by rank
         player_pairings = []
         for t1, t2 in team_pairings:
             log.debug(f'Pairing teams: {t1} vs {t2}')
-            team1_players = [p for p in players_dict if players_dict[p].get('Team') == t1]
-            team1_sorted = sorted(team1_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999))
-            team2_players = [p for p in players_dict if players_dict[p].get('Team') == t2]
-            team2_sorted = sorted(team2_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999))
+            if t1 == 'BYE':
+                team1_sorted = ['BYE' for _ in range(team_size)]
+                team2_players = [p for p in players_dict if players_dict[p].get('Team') == t2]
+                team2_sorted = sorted(team2_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999))
+            elif t2 == 'BYE':
+                team2_sorted = ['BYE' for _ in range(team_size)]
+                team1_players = [p for p in players_dict if players_dict[p].get('Team') == t1]
+                team1_sorted = sorted(team1_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999)) 
+            else:
+                team1_players = [p for p in players_dict if players_dict[p].get('Team') == t1]
+                team1_sorted = sorted(team1_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999))
+                team2_players = [p for p in players_dict if players_dict[p].get('Team') == t2]
+                team2_sorted = sorted(team2_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999))
             for p1, p2 in zip(team1_sorted, team2_sorted):
                 log.debug(f'\tPairing players: {p1} vs {p2}')
                 player_pairings.append((p1, p2))
@@ -176,6 +184,8 @@ def updateStats(players, stats, last_round):
     Returns a dictionary of updated stats, sorted and ranked.
     """
     for player in players:
+        log.debug(f'Updating stats for player: {player}')
+        log.debug(f'....Current stats: {stats.get(player, {})}')  
         for game in last_round:
             stats.setdefault(player, {key: 0 for key in config['base_statistics'] + config['statistics'] + config['additional_statistics']})
             if (game[2] == player) or (game[3] == player):
@@ -184,7 +194,7 @@ def updateStats(players, stats, last_round):
                 if (game[4] == '') or (game[5] == ''):
                     raise ValueError('Round still in progress - missing scores')
                 t1, t2 = int(game[4]), int(game[5])
-                log.debug(f'Updating W/D/L and touchdowns for player {player}')
+                log.debug(f'....Game found for player {player}: {p1} vs {p2}, scores {t1}-{t2}')
                 if (p1 == player and t1 > t2) or (p2 == player and t2 > t1):
                     stats[player]["points"] += 4
                     stats[player]["wins"]   += 1
@@ -216,13 +226,14 @@ def updateStats(players, stats, last_round):
                             idx_b = headers.index(stat_b)
                             # Add stat value based on whether player is A or B
                             if p1 == player:
-                                log.debug(f'Updating stat {stat} for player {player} from column {idx_a}')
                                 stats[player][stat] += float(game[idx_a]) if game[idx_a] else 0
                             else:
-                                log.debug(f'Updating stat {stat} for player {player} from column {idx_b}')
                                 stats[player][stat] += float(game[idx_b]) if game[idx_b] else 0
                         else:
                             log.warning(f'Statistic {stat} not found in headers')
+                
+                log.debug(f'....Updated stats: {stats[player]}')
+                log.debug(f'')
     # Build sort key from indiv_tie_breakers
     from globals import _tie_break_to_stat
     sort_key_stats = []
@@ -302,7 +313,7 @@ if __name__ == '__main__':
     if (round_number>1):
         log.info(f'Computing individual statistics...')
         stats_dict = loadStats()
-        last_round = loadRound(f'rounds/round1.csv')
+        last_round = loadRound(f'rounds/round{round_number-1}.csv')
         stats_dict = updateStats(players_dict, stats_dict, last_round)
         saveStats(stats_dict)
         if config.get('team_size', 1) > 1:
