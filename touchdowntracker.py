@@ -27,30 +27,40 @@ def generatePairing(round_number, players_dict, stats_dict):
         for i in range(1, len(os.listdir('rounds/'))+1):
             round = loadRound(f'rounds/round{i}.csv')
             for game in round:
-                t1 = players_dict.get(game[0], {}).get('Team')
-                t2 = players_dict.get(game[1], {}).get('Team')
+                t1 = game[0]
+                t2 = game[1]
                 if t1 and t2:
                     prev_team_games.append([t1, t2])
 
         # Ensure even number of teams, no BYE allowed
-        if len(teams) % 2 != 0:
-            log.error('Odd number of teams, cannot pair all teams without BYE.')
-            return []
-
+        #if len(teams) % 2 != 0:
+        #    log.error('Odd number of teams, cannot pair all teams without BYE.')
+        #    return []
+        print("previous games")
+        print(prev_team_games)
         team_pairings = dfs_team_recursive(teams, prev_team_games)
 
-        if not team_pairings or len(team_pairings) * 2 != len(teams):
-            log.error('No valid team pairings found without BYE.')
-            return []
+        #if not team_pairings or len(team_pairings) * 2 != len(teams):
+        #    log.error('No valid team pairings found without BYE.')
+        #    return []
 
         # For each team pairing, match individual players by rank
         player_pairings = []
         for t1, t2 in team_pairings:
             log.debug(f'Pairing teams: {t1} vs {t2}')
-            team1_players = [p for p in players_dict if players_dict[p].get('Team') == t1]
-            team1_sorted = sorted(team1_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999))
-            team2_players = [p for p in players_dict if players_dict[p].get('Team') == t2]
-            team2_sorted = sorted(team2_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999))
+            if t1 == 'BYE':
+                team1_sorted = ['BYE' for _ in range(team_size)]
+                team2_players = [p for p in players_dict if players_dict[p].get('Team') == t2]
+                team2_sorted = sorted(team2_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999))
+            elif t2 == 'BYE':
+                team2_sorted = ['BYE' for _ in range(team_size)]
+                team1_players = [p for p in players_dict if players_dict[p].get('Team') == t1]
+                team1_sorted = sorted(team1_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999)) 
+            else:
+                team1_players = [p for p in players_dict if players_dict[p].get('Team') == t1]
+                team1_sorted = sorted(team1_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999))
+                team2_players = [p for p in players_dict if players_dict[p].get('Team') == t2]
+                team2_sorted = sorted(team2_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999))
             for p1, p2 in zip(team1_sorted, team2_sorted):
                 log.debug(f'\tPairing players: {p1} vs {p2}')
                 player_pairings.append((p1, p2))
