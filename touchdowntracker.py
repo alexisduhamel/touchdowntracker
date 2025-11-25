@@ -13,15 +13,14 @@ def generatePairing(round_number, players_dict, stats_dict):
     Generate Swiss pairings for the given round.
     Supports both team-based and individual pairings, avoiding repeat matchups.
     """
-    log.debug(f'generatePairing called for round {round_number}')
     team_size = int(config.get('team_size', 1))
-    log.debug(f'team_size: {team_size}')
 
     if team_size > 1:
         log.debug('Team Swiss pairing mode')
-        team_stats = updateTeamStats(players_dict, stats_dict)
-        teams = list(team_stats.keys())
 
+        # Get list of teams
+        teams = sorted(set(players_dict[p].get('Team') for p in players_dict if players_dict[p].get('Team')))
+        
         # Find previous team matchups
         prev_team_games = []
         for i in range(1, len(os.listdir('rounds/'))+1):
@@ -256,7 +255,7 @@ def updateStats(players, stats, last_round):
         ranked_stats[player]["rank"] = rank
     return ranked_stats
 
-def updateTeamStats(players_dict, stats_dict):
+def updateTeamStats(players_dict, stats_dict, last_round):
     """
     Aggregate player statistics into team statistics.
     Returns a dictionary of team stats, sorted by performance using team_tie_breakers.
@@ -272,7 +271,39 @@ def updateTeamStats(players_dict, stats_dict):
         
         # Aggregate all stats from player to team
         for stat_key in team_stats[team]:
-            team_stats[team][stat_key] += pstats.get(stat_key, 0)
+            if stat_key not in ['rank', 'wins', 'draws', 'losses']:  # rank will be assigned later, wins/draws/losses are not aggregated
+                team_stats[team][stat_key] += pstats.get(stat_key, 0)
+        
+    for team in team_stats:
+        log.debug(f'Computing W/D/L for team: {team}')
+        team_wins = 0
+        team_draws = 0
+        team_losses = 0
+        for game in last_round:
+            t1, t2 = game[0], game[1]
+            if t1 == team or t2 == team:
+                score1, score2 = int(game[4]), int(game[5])
+                if (t1 == team and score1 > score2) or (t2 == team and score2 > score1):
+                    team_wins += 1
+                elif score1 == score2:
+                    team_draws += 1
+                else:
+                    team_losses += 1
+        log.debug(f'....Team {team} W/D/L: {team_wins}/{team_draws}/{team_losses}')
+        team_wr = (team_wins / (team_wins + team_draws + team_losses)) if (team_wins + team_draws + team_losses) > 0 else 0
+        if team_wr > 0.5:
+            team_stats[team]['points'] += 4
+            team_stats[team]['wins'] += 1
+            log.debug(f'....Team {team} awarded 4 points for win')
+        elif team_wr == 0.5:
+            team_stats[team]['points'] += 2
+            team_stats[team]['draws'] += 1
+            log.debug(f'....Team {team} awarded 2 points for draw')
+        else:
+            team_stats[team]['points'] += 0
+            team_stats[team]['losses'] += 1
+            log.debug(f'....Team {team} awarded 0 points for loss')
+
     
     # Build sort key from team_tie_breakers
     sort_key_stats = []
@@ -308,7 +339,7 @@ if __name__ == '__main__':
     players_dict = loadPlayers(filepath=config['players_file'])
 
     # Compute statistics
-    round_number = len(os.listdir('rounds/'))+1
+    round_number = len([f for f in os.listdir('rounds/') if f.endswith('.csv')]) + 1
     log.info(f'Round number: {round_number}')
     if (round_number>1):
         log.info(f'Computing individual statistics...')
@@ -318,7 +349,7 @@ if __name__ == '__main__':
         saveStats(stats_dict)
         if config.get('team_size', 1) > 1:
             log.info(f'Computing team statistics...')
-            team_stats = updateTeamStats(players_dict, stats_dict)
+            team_stats = updateTeamStats(players_dict, stats_dict, last_round)
             saveTeamStats(team_stats)
     else:
         stats_dict = {}

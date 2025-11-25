@@ -154,7 +154,14 @@ def savePairing(round_number, pairing):
                 pA, pB = game[0], game[1]
                 teamA = players_dict.get(pA, {}).get('Team', '') if pA != 'BYE' else 'BYE'
                 teamB = players_dict.get(pB, {}).get('Team', '') if pB != 'BYE' else 'BYE'
-                writer.writerow([teamA, teamB, pA, pB, '', '']+['', '']*(len(config['statistics'])+len(config['additional_statistics']) - len(config['base_statistics'])))
+                row = [teamA, teamB, pA, pB, '', '']+['', '']*(len(config['statistics'])+len(config['additional_statistics']) - len(config['base_statistics']))
+                if 'tier' in config['statistics']+config['additional_statistics']:
+                    tierA = players_dict.get(pA, {}).get('tier', '') if pA != 'BYE' else ''
+                    tierB = players_dict.get(pB, {}).get('tier', '') if pB != 'BYE' else ''
+                    idx = header.index('tierA')
+                    row[idx] = tierA
+                    row[idx+1] = tierB
+                writer.writerow(row)
         else:
             writer.writerow(['PlayerA', 'PlayerB', 'TouchdownA', 'TouchdownB'])
             for game in pairing:
