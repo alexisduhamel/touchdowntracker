@@ -144,28 +144,123 @@ def savePairing(round_number, pairing):
         writer = csv.writer(file)
         if team_size > 1:
             # Write header with stats columns based on tie breaks and additional stats
-            header = ['TeamA', 'TeamB', 'PlayerA', 'PlayerB', 'TouchdownA', 'TouchdownB']
-            for stat in config['statistics']+config['additional_statistics']:
+            header = ['TeamA', 'PlayerA', 'TouchdownA']
+            for stat in config['statistics'] + config['additional_statistics']:
                 if stat not in config['base_statistics']:
                     header.append(f'{stat}A')
-                    header.append(f'{stat}B') 
+            header_part_size = len(header)
+            header += ['TeamB', 'PlayerB', 'TouchdownB']
+            for stat in config['statistics'] + config['additional_statistics']:
+                if stat not in config['base_statistics']:
+                    header.append(f'{stat}B')
             writer.writerow(header)
             for game in pairing:
                 pA, pB = game[0], game[1]
-                teamA = players_dict.get(pA, {}).get('Team', '') if pA != 'BYE' else 'BYE'
-                teamB = players_dict.get(pB, {}).get('Team', '') if pB != 'BYE' else 'BYE'
-                row = [teamA, teamB, pA, pB, '', '']+['', '']*(len(config['statistics'])+len(config['additional_statistics']) - len(config['base_statistics']))
-                if 'tier' in config['statistics']+config['additional_statistics']:
-                    tierA = players_dict.get(pA, {}).get('tier', '') if pA != 'BYE' else ''
-                    tierB = players_dict.get(pB, {}).get('tier', '') if pB != 'BYE' else ''
-                    idx = header.index('tierA')
-                    row[idx] = tierA
-                    row[idx+1] = tierB
+
+                row = [''] * (2*header_part_size)
+
+                row[header.index('TeamA')] = players_dict.get(pA, {}).get('Team', '') if pA != 'BYE' else 'BYE'
+                row[header.index('PlayerA')] = pA
+                row[header.index('TeamB')] = players_dict.get(pB, {}).get('Team', '') if pB != 'BYE' else 'BYE'
+                row[header.index('PlayerB')] = pB
+
+                if 'tier' in config['statistics'] + config['additional_statistics']:
+                    row[header.index('tierA')] = players_dict.get(pA, {}).get('tier', '') if pA != 'BYE' else ''
+                    row[header.index('tierB')] = players_dict.get(pB, {}).get('tier', '') if pB != 'BYE' else ''
                 writer.writerow(row)
         else:
             writer.writerow(['PlayerA', 'PlayerB', 'TouchdownA', 'TouchdownB'])
             for game in pairing:
                 writer.writerow([game[0], game[1], '', ''])
+    log.info(f'{path} saved.')
+
+def savePairingHtml(round_number, pairing):
+    """
+    Save the pairings for a round to an HTML file.
+    Handles both team and individual formats and mirrors savePairing's
+    behavior for config['statistics'] and config['additional_statistics'].
+    """
+    filepath = f'rounds/round{round_number}.html'
+    path = Path(filepath)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Need access to players_dict for team info
+    from inspect import currentframe
+    from html import escape
+    frame = currentframe()
+    players_dict = frame.f_back.f_locals.get('players_dict', {})
+    team_size = int(config.get('team_size', 1))
+
+    with open(path, mode='w', encoding='utf-8') as file:
+
+        file.write('<html><head>\n')
+        file.write('    <title>Round {}</title>\n'.format(round_number))
+        file.write('    <style>\n')
+        file.write('        table, th, td { text-align: center; }\n')
+        file.write('    </style>\n')
+        file.write('</head>\n')
+        file.write('<body>\n')
+        file.write('<h1>Round {}</h1>\n'.format(round_number))
+
+
+        if team_size > 1:
+            # Build header grouped by A then B
+            base_a = ['TeamA', 'PlayerA', 'TouchdownA']
+            base_b = ['TeamB', 'PlayerB', 'TouchdownB']
+
+            extra_stats = []
+            for stat in config['statistics'] + config['additional_statistics']:
+                if stat not in config['base_statistics']:
+                    extra_stats.append(stat)
+
+            header = base_a + [f'{s}A' for s in extra_stats] + base_b + [f'{s}B' for s in extra_stats]
+
+            # get the game and index
+            for game, idx in zip(pairing, range(0, len(pairing))):
+
+                if idx%team_size == 0:
+                    file.write('<table border="1">\n')
+                    # write header row with readable labels
+                    file.write('<tr>')
+                    for h in header:
+                        if h.endswith('A') or h.endswith('B'):
+                            label = h[:-1] + ' ' + h[-1]
+                        else:
+                            label = h
+                        file.write(f'<th>{escape(label)}</th>')
+                    file.write('</tr>\n')
+
+                pA, pB = game[0], game[1]
+
+                row = [''] * len(header)
+
+                # build A block then B block
+                row[header.index('TeamA')] = players_dict.get(pA, {}).get('Team', '') if pA != 'BYE' else 'BYE'
+                row[header.index('PlayerA')] = pA
+                row[header.index('TeamB')] = players_dict.get(pB, {}).get('Team', '') if pB != 'BYE' else 'BYE'
+                row[header.index('PlayerB')] = pB
+
+                # If tier is tracked, fill tier columns (matching savePairing)
+                if 'tier' in config['statistics'] + config['additional_statistics']:
+                    # set tierA and tierB in row
+                    row[header.index('tierA')] = players_dict.get(pA, {}).get('tier', '') if pA != 'BYE' else ''
+                    row[header.index('tierB')] = players_dict.get(pB, {}).get('tier', '') if pB != 'BYE' else ''
+
+                # write the row
+                file.write('<tr>')
+                for cell in row:
+                    file.write(f'<td>{escape(str(cell))}</td>')
+                file.write('</tr>\n')
+                if idx%team_size == team_size - 1:
+                    file.write('</table><br>\n')
+        else:
+            # individual format
+            file.write('<tr><th>Player A</th><th>Player B</th><th>Touchdown A</th><th>Touchdown B</th></tr>\n')
+            for game in pairing:
+                file.write('<tr><td>{}</td><td>{}</td><td></td><td></td></tr>\n'.format(escape(game[0]), escape(game[1])))
+
+        file.write('</table>\n')
+        file.write('</body></html>\n')
     log.info(f'{path} saved.')
 
 def saveStats(stats, filepath='stats/statistics.csv'):

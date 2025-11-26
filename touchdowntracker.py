@@ -23,8 +23,8 @@ def generatePairing(round_number, players_dict, stats_dict):
         
         # Find previous team matchups
         prev_team_games = []
-        for i in range(1, len(os.listdir('rounds/'))+1):
-            round = loadRound(f'rounds/round{i}.csv')
+        for i in range(1, len([f for f in os.listdir('rounds/') if f.endswith('.csv')]) + 1):
+            round = loadRound(f'rounds/round{i}.csv') 
             for game in round:
                 t1 = game[0]
                 t2 = game[1]
@@ -359,4 +359,5 @@ if __name__ == '__main__':
     pairings=generatePairing(round_number, players_dict, stats_dict)
     if pairings != []:
         savePairing(round_number, pairings)
+        savePairingHtml(round_number, pairings)
 
