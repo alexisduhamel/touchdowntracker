@@ -120,7 +120,6 @@ def loadRound(filepath='rounds/round1.csv'):
         raise FileNotFoundError(f'{filepath} not found')
     with open(path, mode='r', encoding='utf-8') as file:
         reader = csv.reader(file)
-        next(reader) # skip first line
         for row in reader:
             round.append(row)
     return round

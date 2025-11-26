@@ -25,21 +25,14 @@ def generatePairing(round_number, players_dict, stats_dict):
         prev_team_games = []
         for i in range(1, len([f for f in os.listdir('rounds/') if f.endswith('.csv')]) + 1):
             round = loadRound(f'rounds/round{i}.csv') 
+            round = round[1:] # Skip header
             for game in round:
                 t1 = game[0]
                 t2 = game[1]
                 if t1 and t2:
                     prev_team_games.append([t1, t2])
 
-        # Ensure even number of teams, no BYE allowed
-        #if len(teams) % 2 != 0:
-        #    log.error('Odd number of teams, cannot pair all teams without BYE.')
-        #    return []
         team_pairings = dfs_team_recursive(teams, prev_team_games)
-
-        #if not team_pairings or len(team_pairings) * 2 != len(teams):
-        #    log.error('No valid team pairings found without BYE.')
-        #    return []
 
         # For each team pairing, match individual players by rank
         player_pairings = []
@@ -98,6 +91,7 @@ def generatePairing(round_number, players_dict, stats_dict):
                         last_round.append(row)
             for i in range(1, len(os.listdir('rounds/'))+1):
                 round = loadRound(f'rounds/round{i}.csv')
+                round = round[1:] # Skip header
                 for game in round:
                     prev_games.append([game[0], game[1]])
             pairings = dfs_recursive(players_dict, stats_dict, prev_games)
@@ -184,55 +178,62 @@ def updateStats(players, stats, last_round):
     """
     for player in players:
         log.debug(f'Updating stats for player: {player}')
+        stats.setdefault(player, {key: 0 for key in config['base_statistics'] + config['statistics'] + config['additional_statistics']})
         log.debug(f'....Current stats: {stats.get(player, {})}')  
-        for game in last_round:
-            stats.setdefault(player, {key: 0 for key in config['base_statistics'] + config['statistics'] + config['additional_statistics']})
-            if (game[2] == player) or (game[3] == player):
-                # Update points, wins, draws and losses
-                p1, p2 = game[2], game[3]
-                if (game[4] == '') or (game[5] == ''):
-                    raise ValueError('Round still in progress - missing scores')
-                t1, t2 = int(game[4]), int(game[5])
-                log.debug(f'....Game found for player {player}: {p1} vs {p2}, scores {t1}-{t2}')
-                if (p1 == player and t1 > t2) or (p2 == player and t2 > t1):
-                    stats[player]["points"] += 4
-                    stats[player]["wins"]   += 1
-                elif t1 == t2:
-                    stats[player]["points"] += 2
-                    stats[player]["draws"]  += 1
-                else:
-                    stats[player]["points"] += 0
-                    stats[player]["losses"] += 1
+        for game, idx in zip(last_round, range(len(last_round))):
+            
+            if idx == 0: # header
+                pA_index = game.index('PlayerA')
+                pB_index = game.index('PlayerB')
+                tdA_index = game.index('TouchdownA')
+                tdB_index = game.index('TouchdownB')
+            else:
+                if (game[pA_index] == player) or (game[pB_index] == player):
+                    # Update points, wins, draws and losses
+                    pA, pB = game[pA_index], game[pB_index]
+                    if (game[tdA_index] == '') or (game[tdB_index] == ''):
+                        raise ValueError('Round still in progress - missing scores')
+                    tdA, tdB = int(game[tdA_index]), int(game[tdB_index])
+                    log.debug(f'....Game found for player {player}: {pA} vs {pB}, scores {tdA}-{tdB}')
+                    if (pA == player and tdA > tdB) or (pB == player and tdB > tdA):
+                        stats[player]["points"] += 4
+                        stats[player]["wins"]   += 1
+                    elif tdA == tdB:
+                        stats[player]["points"] += 2
+                        stats[player]["draws"]  += 1
+                    else:
+                        stats[player]["points"] += 0
+                        stats[player]["losses"] += 1
 
-                # Update touchdowns scored/conceded (always first two columns after player names)
-                stats[player]["touchdown_scored"]   += t1 if p1 == player else t2
-                stats[player]["touchdown_conceded"] += t2 if p1 == player else t1
-                stats[player]["touchdown_diff"]     = stats[player]["touchdown_scored"] - stats[player]["touchdown_conceded"]
-                
-                # Get column headers from first row
-                with open(f'rounds/round{round_number-1}.csv', 'r', encoding='utf-8') as f:
-                    headers = next(csv.reader(f))
-                
-                # Update stats based on header positions
-                for stat in config['statistics'] + config['additional_statistics']:
-                    if stat not in config['base_statistics']: # Exclude mandatory stats
-                        # Look for both statA and statB variations in headers
-                        stat_a = f"{stat}A"
-                        stat_b = f"{stat}B"
-                        
-                        if stat_a in headers and stat_b in headers:
-                            idx_a = headers.index(stat_a)
-                            idx_b = headers.index(stat_b)
-                            # Add stat value based on whether player is A or B
-                            if p1 == player:
-                                stats[player][stat] += float(game[idx_a]) if game[idx_a] else 0
+                    # Update touchdowns scored/conceded (always first two columns after player names)
+                    stats[player]["touchdown_scored"]   += tdA if pA == player else tdB
+                    stats[player]["touchdown_conceded"] += tdB if pA == player else tdA
+                    stats[player]["touchdown_diff"]     = stats[player]["touchdown_scored"] - stats[player]["touchdown_conceded"]
+                    
+                    # Get column headers from first row
+                    with open(f'rounds/round{round_number-1}.csv', 'r', encoding='utf-8') as f:
+                        headers = next(csv.reader(f))
+                    
+                    # Update stats based on header positions
+                    for stat in config['statistics'] + config['additional_statistics']:
+                        if stat not in config['base_statistics']: # Exclude mandatory stats
+                            # Look for both statA and statB variations in headers
+                            stat_a = f"{stat}A"
+                            stat_b = f"{stat}B"
+                            
+                            if stat_a in headers and stat_b in headers:
+                                idx_a = headers.index(stat_a)
+                                idx_b = headers.index(stat_b)
+                                # Add stat value based on whether player is A or B
+                                if pA == player:
+                                    stats[player][stat] += float(game[idx_a]) if game[idx_a] else 0
+                                else:
+                                    stats[player][stat] += float(game[idx_b]) if game[idx_b] else 0
                             else:
-                                stats[player][stat] += float(game[idx_b]) if game[idx_b] else 0
-                        else:
-                            log.warning(f'Statistic {stat} not found in headers')
-                
-                log.debug(f'....Updated stats: {stats[player]}')
-                log.debug(f'')
+                                log.warning(f'Statistic {stat} not found in headers')
+                    
+                    log.debug(f'....Updated stats: {stats[player]}')
+                    log.debug(f'')
     # Build sort key from indiv_tie_breakers
     from globals import _tie_break_to_stat
     sort_key_stats = []
@@ -255,12 +256,11 @@ def updateStats(players, stats, last_round):
         ranked_stats[player]["rank"] = rank
     return ranked_stats
 
-def updateTeamStats(players_dict, stats_dict, last_round):
+def updateTeamStats(players_dict, stats_dict, team_stats, last_round):
     """
     Aggregate player statistics into team statistics.
     Returns a dictionary of team stats, sorted by performance using team_tie_breakers.
     """
-    team_stats = {}
     for player, pdata in players_dict.items():
         team = pdata.get('Team', None)
         if not team:
@@ -279,16 +279,22 @@ def updateTeamStats(players_dict, stats_dict, last_round):
         team_wins = 0
         team_draws = 0
         team_losses = 0
-        for game in last_round:
-            t1, t2 = game[0], game[1]
-            if t1 == team or t2 == team:
-                score1, score2 = int(game[4]), int(game[5])
-                if (t1 == team and score1 > score2) or (t2 == team and score2 > score1):
-                    team_wins += 1
-                elif score1 == score2:
-                    team_draws += 1
-                else:
-                    team_losses += 1
+        for game, idx in zip(last_round, range(len(last_round))):
+            if idx == 0: # header
+                t1_index = game.index('TeamA')
+                t2_index = game.index('TeamB')
+                td1_index = game.index('TouchdownA')
+                td2_index = game.index('TouchdownB')
+            else:
+                t1, t2 = game[t1_index], game[t2_index]
+                if t1 == team or t2 == team:
+                    score1, score2 = int(game[td1_index]), int(game[td2_index])
+                    if (t1 == team and score1 > score2) or (t2 == team and score2 > score1):
+                        team_wins += 1
+                    elif score1 == score2:
+                        team_draws += 1
+                    else:
+                        team_losses += 1
         log.debug(f'....Team {team} W/D/L: {team_wins}/{team_draws}/{team_losses}')
         team_wr = (team_wins / (team_wins + team_draws + team_losses)) if (team_wins + team_draws + team_losses) > 0 else 0
         if team_wr > 0.5:
@@ -342,14 +348,26 @@ if __name__ == '__main__':
     round_number = len([f for f in os.listdir('rounds/') if f.endswith('.csv')]) + 1
     log.info(f'Round number: {round_number}')
     if (round_number>1):
-        log.info(f'Computing individual statistics...')
-        stats_dict = loadStats()
-        last_round = loadRound(f'rounds/round{round_number-1}.csv')
-        stats_dict = updateStats(players_dict, stats_dict, last_round)
+        log.info(f'Computing statistics...')
+        # Remove statistics.csv and team_statistics.csv from stats/ if they exist
+        if os.path.exists('stats/statistics.csv'):
+            os.remove('stats/statistics.csv')
+        if os.path.exists('stats/team_statistics.csv'):
+            os.remove('stats/team_statistics.csv')
+
+        # Load and aggregate stats from previous rounds
+        stats_dict = {}
+        team_stats = {}
+        for round_idx in range(1, round_number):
+            log.info(f'...from round {round_idx}')
+            round_data = loadRound(f'rounds/round{round_idx}.csv')
+            stats_dict = updateStats(players_dict, stats_dict, round_data)
+            if config.get('team_size', 1) > 1:
+                team_stats = updateTeamStats(players_dict, stats_dict, team_stats, round_data)
+        
+        # Save updated statistics
         saveStats(stats_dict)
         if config.get('team_size', 1) > 1:
-            log.info(f'Computing team statistics...')
-            team_stats = updateTeamStats(players_dict, stats_dict, last_round)
             saveTeamStats(team_stats)
     else:
         stats_dict = {}
