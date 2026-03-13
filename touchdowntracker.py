@@ -4,11 +4,36 @@ import os
 import random
 import csv
 import logging as log
+from datetime import datetime
+from pathlib import Path
 
 from globals import *
 from utils import *
 
-def generatePairing(round_number, players_dict, stats_dict):
+def get_previous_pairings(rounds_dir='rounds', a_col='PlayerA', b_col='PlayerB'):
+    """
+    Return a list of previous pairings by scanning round CSVs.
+    Each element is a pair [A, B].
+    """
+    prev = []
+    files = [f for f in os.listdir(rounds_dir) if f.endswith('.csv')]
+    for i in range(1, len(files) + 1):
+        try:
+            r = loadRound(f'{rounds_dir}/round{i}.csv')
+        except FileNotFoundError:
+            continue
+        if not r:
+            continue
+        header = r[0]
+        if a_col not in header or b_col not in header:
+            continue
+        a_idx = header.index(a_col)
+        b_idx = header.index(b_col)
+        for row in r[1:]:
+            prev.append([row[a_idx], row[b_idx]])
+    return prev
+
+def generatePairing(round_number, players_dict, stats_dict, team_stats=None):
     """
     Generate Swiss pairings for the given round.
     Supports both team-based and individual pairings, avoiding repeat matchups.
@@ -18,19 +43,17 @@ def generatePairing(round_number, players_dict, stats_dict):
     if team_size > 1:
         log.debug('Team Swiss pairing mode')
 
-        # Get list of teams
-        teams = sorted(set(players_dict[p].get('Team') for p in players_dict if players_dict[p].get('Team')))
+        # Get list of unique teams
+        if team_stats:
+            teams = list(team_stats.keys())
+        else:
+            teams = list({p.get('Team') for p in players_dict.values() if p.get('Team') is not None})
         
         # Find previous team matchups
-        prev_team_games = []
-        for i in range(1, len([f for f in os.listdir('rounds/') if f.endswith('.csv')]) + 1):
-            round = loadRound(f'rounds/round{i}.csv') 
-            round = round[1:] # Skip header
-            for game in round:
-                t1 = game[0]
-                t2 = game[1]
-                if t1 and t2:
-                    prev_team_games.append([t1, t2])
+        prev_team_games = get_previous_pairings('rounds', 'TeamA', 'TeamB')
+
+        log.debug(f'Found {len(prev_team_games)} previous team games')
+        log.debug('')
 
         team_pairings = dfs_team_recursive(teams, prev_team_games)
 
@@ -53,7 +76,7 @@ def generatePairing(round_number, players_dict, stats_dict):
                 team2_sorted = sorted(team2_players, key=lambda p: stats_dict.get(p, {}).get('rank', 9999))
             for p1, p2 in zip(team1_sorted, team2_sorted):
                 log.debug(f'\tPairing players: {p1} vs {p2}')
-                player_pairings.append((p1, p2))
+                player_pairings.append([p1, p2])
             # If teams have unequal number of players, ignore extra players (no BYE)
         return player_pairings
     else:
@@ -68,6 +91,7 @@ def generatePairing(round_number, players_dict, stats_dict):
                 sorted_players = list(players_dict.keys())
                 random.shuffle(sorted_players)
             pairings = []
+            log.debug('Remaining players: ' + ', '.join(sorted_players))
             for i in range(0, len(sorted_players)-1, 2):
                 log.debug(f'Pairing: {sorted_players[i]} vs {sorted_players[i+1]}')
                 pairings.append([sorted_players[i], sorted_players[i+1]])
@@ -77,32 +101,18 @@ def generatePairing(round_number, players_dict, stats_dict):
             return pairings
         else:
             log.debug('Subsequent round pairing')
-            prev_games = []
-            last_round_file = f'rounds/round{round_number-1}.csv'
-            if os.path.exists(last_round_file):
-                log.debug(f'Loading last round file: {last_round_file}')
-                with open(last_round_file, mode='r', encoding='utf-8') as file:
-                    reader = csv.reader(file)
-                    next(reader) # skip header
-                    for row in reader:
-                        if len(row) < 4:
-                            log.error('Round still in progress')
-                            return []
-                        last_round.append(row)
-            for i in range(1, len(os.listdir('rounds/'))+1):
-                round = loadRound(f'rounds/round{i}.csv')
-                round = round[1:] # Skip header
-                for game in round:
-                    prev_games.append([game[0], game[1]])
+            prev_games = get_previous_pairings('rounds', 'PlayerA', 'PlayerB')
             pairings = dfs_recursive(players_dict, stats_dict, prev_games)
             return pairings
 
-def dfs_recursive(players_dict, stats_dict, prev_games, pairings=[]):
+def dfs_recursive(players_dict, stats_dict, prev_games, pairings=None):
     """
     Recursively generate valid player pairings using DFS, avoiding repeat matchups.
     Returns a list of pairings.
     """
     log.debug(f'dfs_recursive called')
+    if pairings is None:
+        pairings = []
     if len(pairings) * 2 >= len(players_dict):
         log.debug('All players paired, returning pairings')
         return pairings
@@ -114,7 +124,7 @@ def dfs_recursive(players_dict, stats_dict, prev_games, pairings=[]):
     log.debug(f'Remaining players: {remaining}')
     if len(remaining) == 1:
         log.debug(f'Only one player left: {remaining[0]}, assigning BYE')
-        pairings.append((remaining[0], 'BYE'))
+        pairings.append([remaining[0], 'BYE'])
         return pairings
     elif not remaining:
         log.debug('No remaining players, returning pairings')
@@ -137,7 +147,9 @@ def dfs_recursive(players_dict, stats_dict, prev_games, pairings=[]):
     log.debug('No valid pairings found, returning empty list')
     return []
 
-def dfs_team_recursive(sorted_teams, prev_games, pairings=[]):
+def dfs_team_recursive(sorted_teams, prev_games, pairings=None):
+    if pairings is None:
+        pairings = []
     log.debug(f'dfs_team_recursive called with pairings: {pairings}')
     if len(pairings) * 2 >= len(sorted_teams):
         log.debug('All teams paired, returning pairings')
@@ -147,10 +159,10 @@ def dfs_team_recursive(sorted_teams, prev_games, pairings=[]):
         used.add(t1)
         used.add(t2)
     remaining = [t for t in sorted_teams if t not in used]
-    log.debug(f'Remaining teams: {remaining}')
+    log.debug(f'\tRemaining teams: {remaining}')
     if len(remaining) == 1:
         log.debug(f'Only one team left: {remaining[0]}, assigning BYE')
-        pairings.append((remaining[0], 'BYE'))
+        pairings.append([remaining[0], 'BYE'])
         return pairings
     elif not remaining:
         log.debug('No remaining teams, returning pairings')
@@ -158,17 +170,18 @@ def dfs_team_recursive(sorted_teams, prev_games, pairings=[]):
     t1 = remaining[0]
     for i in range(1, len(remaining)):
         t2 = remaining[i]
-        log.debug(f'Trying to pair {t1} with {t2}')
+        log.debug(f'\t\tTrying to pair {t1} with {t2}')
         if [t1, t2] not in prev_games and [t2, t1] not in prev_games:
-            log.debug(f'Pair {t1}-{t2} not in previous games, recursing')
-            result = dfs_team_recursive(sorted_teams, prev_games, pairings + [(t1, t2)])
+            log.debug(f'\tPair {t1}-{t2} not in previous games, recursing')
+            log.debug('')
+            result = dfs_team_recursive(sorted_teams, prev_games, pairings + [[t1, t2]])
             if result:
-                log.debug(f'Recursion successful for pair {t1}-{t2}')
+                log.debug(f'\tRecursion successful for pair {t1}-{t2}')
                 return result
             else:
-                log.debug(f'Recursion failed for pair {t1}-{t2}')
+                log.debug(f'\tRecursion failed for pair {t1}-{t2}')
     log.debug(f'No valid pairings found for {t1}, assigning BYE')
-    pairings.append((t1, 'BYE'))
+    pairings.append([t1, 'BYE'])
     return pairings
 
 def updateStats(players, stats, last_round):
@@ -180,13 +193,15 @@ def updateStats(players, stats, last_round):
         log.debug(f'Updating stats for player: {player}')
         stats.setdefault(player, {key: 0 for key in config['base_statistics'] + config['statistics'] + config['additional_statistics']})
         log.debug(f'....Current stats: {stats.get(player, {})}')  
-        for game, idx in zip(last_round, range(len(last_round))):
-            
-            if idx == 0: # header
-                pA_index = game.index('PlayerA')
-                pB_index = game.index('PlayerB')
-                tdA_index = game.index('TouchdownA')
-                tdB_index = game.index('TouchdownB')
+        for idx, game in enumerate(last_round):
+            if idx == 0:  # header row
+                headers = game
+                if 'PlayerA' not in headers or 'PlayerB' not in headers or 'TouchdownA' not in headers or 'TouchdownB' not in headers:
+                    raise ValueError('Invalid round header for player stats')
+                pA_index = headers.index('PlayerA')
+                pB_index = headers.index('PlayerB')
+                tdA_index = headers.index('TouchdownA')
+                tdB_index = headers.index('TouchdownB')
             else:
                 if (game[pA_index] == player) or (game[pB_index] == player):
                     # Update points, wins, draws and losses
@@ -210,9 +225,8 @@ def updateStats(players, stats, last_round):
                     stats[player]["touchdown_conceded"] += tdB if pA == player else tdA
                     stats[player]["touchdown_diff"]     = stats[player]["touchdown_scored"] - stats[player]["touchdown_conceded"]
                     
-                    # Get column headers from first row
-                    with open(f'rounds/round{round_number-1}.csv', 'r', encoding='utf-8') as f:
-                        headers = next(csv.reader(f))
+                    # Headers are taken from the first row of last_round
+                    # variable 'headers' was set above when idx==0
                     
                     # Update stats based on header positions
                     for stat in config['statistics'] + config['additional_statistics']:
@@ -269,9 +283,12 @@ def updateTeamStats(players_dict, stats_dict, team_stats, last_round):
         if team not in team_stats:
             team_stats[team] = {key: 0 for key in config['base_statistics'] + config['statistics'] + config['additional_statistics']}
         
+        log.debug(f'Aggregating stats for player {player} into team {team}')
+        log.debug(f'....Player stats: {pstats}')
         # Aggregate all stats from player to team
         for stat_key in team_stats[team]:
-            if stat_key not in ['rank', 'wins', 'draws', 'losses']:  # rank will be assigned later, wins/draws/losses are not aggregated
+            if stat_key not in ['rank', 'points', 'wins', 'draws', 'losses']:  # rank will be assigned later, points, wins/draws/losses are not aggregated
+                log.debug(f'........Adding {stat_key}: {pstats.get(stat_key, 0)} to team {team}')
                 team_stats[team][stat_key] += pstats.get(stat_key, 0)
         
     for team in team_stats:
@@ -279,24 +296,29 @@ def updateTeamStats(players_dict, stats_dict, team_stats, last_round):
         team_wins = 0
         team_draws = 0
         team_losses = 0
-        for game, idx in zip(last_round, range(len(last_round))):
-            if idx == 0: # header
-                t1_index = game.index('TeamA')
-                t2_index = game.index('TeamB')
-                td1_index = game.index('TouchdownA')
-                td2_index = game.index('TouchdownB')
+        t1_index = t2_index = td1_index = td2_index = None
+        for idx, game in enumerate(last_round):
+            if idx == 0:  # header
+                headers = game
+                if 'TeamA' not in headers or 'TeamB' not in headers or 'TouchdownA' not in headers or 'TouchdownB' not in headers:
+                    raise ValueError('Invalid round header for team stats')
+                t1_index = headers.index('TeamA')
+                t2_index = headers.index('TeamB')
+                td1_index = headers.index('TouchdownA')
+                td2_index = headers.index('TouchdownB')
             else:
                 t1, t2 = game[t1_index], game[t2_index]
                 if t1 == team or t2 == team:
                     score1, score2 = int(game[td1_index]), int(game[td2_index])
                     if (t1 == team and score1 > score2) or (t2 == team and score2 > score1):
-                        team_wins += 1
+                        team_wins   += 1
                     elif score1 == score2:
-                        team_draws += 1
+                        team_draws  += 1
                     else:
                         team_losses += 1
         log.debug(f'....Team {team} W/D/L: {team_wins}/{team_draws}/{team_losses}')
-        team_wr = (team_wins / (team_wins + team_draws + team_losses)) if (team_wins + team_draws + team_losses) > 0 else 0
+        team_wr = ((team_wins + team_draws*0.5) / (team_wins + team_draws + team_losses)) if (team_wins + team_draws + team_losses) > 0 else 0
+        log.debug(f'....Team {team} Win Rate: {team_wr:.2f}')
         if team_wr > 0.5:
             team_stats[team]['points'] += 4
             team_stats[team]['wins'] += 1
@@ -315,6 +337,7 @@ def updateTeamStats(players_dict, stats_dict, team_stats, last_round):
     sort_key_stats = []
     for tie_break in config.get('team_tie_breakers', []):
         from globals import _tie_break_to_stat
+
         if tie_break in _tie_break_to_stat:
             log.debug(f'Sorting teams by tie breaker: {tie_break}')
             sort_key_stats.append(_tie_break_to_stat[tie_break])
@@ -335,7 +358,22 @@ def updateTeamStats(players_dict, stats_dict, team_stats, last_round):
 
 if __name__ == '__main__':
 
+    # Create log directory if it doesn't exist
+    Path('log').mkdir(exist_ok=True)
+
+    # Create filename with current time
+    log_time = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_filename = f'log/log_{log_time}.log'
+
+    # Configure logging with console and file handlers
+    formatter = log.Formatter('%(levelname)s - %(message)s')
     log.basicConfig(format='%(levelname)s - %(message)s', level=args.loglevel.upper())
+
+    # Add file handler
+    file_handler = log.FileHandler(log_filename)
+    file_handler.setFormatter(formatter)
+    log.getLogger().addHandler(file_handler)
+
     log.info(f'Touchdown Tracker v{version}')
     log.debug(f'Config: {config}')
 
@@ -347,6 +385,7 @@ if __name__ == '__main__':
     # Compute statistics
     round_number = len([f for f in os.listdir('rounds/') if f.endswith('.csv')]) + 1
     log.info(f'Round number: {round_number}')
+    team_stats = {}
     if (round_number>1):
         log.info(f'Computing statistics...')
         # Remove statistics.csv and team_statistics.csv from stats/ if they exist
@@ -357,7 +396,6 @@ if __name__ == '__main__':
 
         # Load and aggregate stats from previous rounds
         stats_dict = {}
-        team_stats = {}
         for round_idx in range(1, round_number):
             log.info(f'...from round {round_idx}')
             round_data = loadRound(f'rounds/round{round_idx}.csv')
@@ -374,7 +412,7 @@ if __name__ == '__main__':
 
     # Generate next round
     log.info(f'Generating round {round_number}...')
-    pairings=generatePairing(round_number, players_dict, stats_dict)
+    pairings=generatePairing(round_number, players_dict, stats_dict, team_stats)
     if pairings != []:
         savePairing(round_number, pairings)
         savePairingHtml(round_number, pairings)

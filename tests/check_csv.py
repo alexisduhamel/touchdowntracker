@@ -30,27 +30,30 @@ def process_csv_files(folder_path, team_size):
 
     for file_path in csv_files:
         print(f"Processing file: {file_path}")
-        try:
-            with file_path.open(mode='r', newline='', encoding='utf-8') as file:
-                reader = csv.reader(file)
-                next(reader, None)
-                for row in reader:
-                    if len(row) >= 2:
-                        # If team_size > 1, treat as teams; else, as players
-                        if team_size > 1:
-                            value1 = row[0].strip()  # Team 1
-                            value2 = row[1].strip()  # Team 2
-                        else:
-                            value1 = row[0].strip()  # Player 1
-                            value2 = row[1].strip()  # Player 2
-                        normalized_pair = tuple(sorted((value1, value2)))
-                        pair_counts[normalized_pair] = pair_counts.get(normalized_pair, 0) + 1
-        except Exception as e:
-            print(f"Error processing {file_path}: {e}")
-    duplicates = [pair for pair, count in pair_counts.items() if count > team_size]
-    if duplicates:
-        log.info(f"Duplicate pairings found: {duplicates}")
-    return set(pair_counts.keys())
+        with open(file_path, 'r', encoding='utf-8') as file: 
+            reader = csv.reader(file)
+            header = next(reader)
+            teamA_idx = header.index('TeamA') if 'TeamA' in header else None
+            teamB_idx = header.index('TeamB') if 'TeamB' in header else None
+            playerA_idx = header.index('PlayerA') if 'PlayerA' in header else None
+            playerB_idx = header.index('PlayerB') if 'PlayerB' in header else None
+            for row in reader:
+                if config['team_size'] > 1 and teamA_idx is not None and teamB_idx is not None:
+                # If team_size > 1, treat as teams; else, as players
+                    value1 = row[teamA_idx]  # Team A
+                    value2 = row[teamB_idx]  # Team B
+                else:
+                    value1 = row[playerA_idx]  # Player A
+                    value2 = row[playerB_idx]  # Player B
+                normalized_pair = tuple(sorted((value1, value2)))
+                pair_counts[normalized_pair] = pair_counts.get(normalized_pair, 0) + 1
+    # Check if each pair_counts appear exactly config['team_size'] times
+    all_unique_pairs = set()
+    for pair, count in pair_counts.items():
+        if count != config['team_size']:
+            log.warning(f"Pair {pair} appears {count} times, expected {config['team_size']} times.")
+        all_unique_pairs.add(pair)
+    return all_unique_pairs
 
 if __name__ == "__main__":
     log.basicConfig(format='%(levelname)s - %(message)s', level=log.INFO)

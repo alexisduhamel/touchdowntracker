@@ -5,8 +5,8 @@ random_seed   : 2025 # Random seed for reproducibility
 
 ###################################################################################
 # Player settings
-team_size     : 4 # Number of players in the team, set to 1 for single-player mode
-players_file  : config/players_team.csv
+team_size     : 1 # Number of players in the team, set to 1 for single-player mode
+players_file  : config/players_indiv.csv
 
 ###################################################################################
 # Tie breaker settings
@@ -27,13 +27,13 @@ players_file  : config/players_team.csv
 indiv_tie_breakers: # Individual ranking tie breakers
   - "wins"
   - "draws"
-  - "tier"
-  - "offense"
+  - "diff"
+  - "casualties"
+  - "fouls"
 
 team_tie_breakers: # Team ranking tie breakers -- ignore if team_size = 1
   - "wins"
   - "draws"
-  - "tier"
   - "offense"
 
 ###################################################################################
@@ -48,7 +48,7 @@ team_tie_breakers: # Team ranking tie breakers -- ignore if team_size = 1
 ##   - "touchdowns_scored"  : Tracked by default 
 ##   - "touchdowns_conceded": Tracked by default
 ##   - "touchdown_diff"     : Tracked by default
-##   - "casualities"        : Tracked optionally or by default if 'most_casualties' tie break is selected
+##   - "casualties"        : Tracked optionally or by default if 'most_casualties' tie break is selected
 ##   - "fouls"              : Tracked optionally or by default if 'most_fouls' tie break is selected
 ##   - "passes"             : Tracked optionally or by default if 'most_passes' tie break is selected
 ##   - "tier"               : Tracked optionally or by default if 'highest_tier' tie break is selected
@@ -56,5 +56,5 @@ team_tie_breakers: # Team ranking tie breakers -- ignore if team_size = 1
 # Additional Statistics will not affect tie breaks but will be included in the final output of both individual and team rankings
 # Add them here if you want to track them without impacting your rankings
 additional_statistics:
-  - "casualities"
+  - "casualties"
   - "fouls" 

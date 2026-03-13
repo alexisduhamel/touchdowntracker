@@ -1,65 +1,90 @@
 Player,NAF,Race,Team
-Grimtooth,31521,Skaven,Team 1
-Ironfist,22409,Undead,Team 1
-Shadowbane,27894,Lizardmen,Team 1
-Spike,25187,Dwarves,Team 1
-Bruiser,30256,Orcs,Team 2
-Slicer,19875,High Elves,Team 2
-Tackler,33789,Wood Elves,Team 2
-Foul,24501,Lizardmen,Team 2
-Bonecrusher,39210,Humans,Team 3
-Stinger,17543,Halflings,Team 3
-Grit,28890,Orcs,Team 3
-Crusher,35678,Undead,Team 3
-Mauler,20456,Goblins,Team 4
-Ripper,31123,Chaos Chosen,Team 4
-Blitz,22987,Wood Elves,Team 4
-Slammer,37001,Norse,Team 4
-Fang,29456,Dark Elves,Team 5
-Tank,21345,Ogre,Team 5
-Wrecker,30123,Skaven,Team 5
-Crasher,26789,Tomb Kings,Team 5
-Juggernaut,34567,Orcs,Team 6
-Slaughter,18901,Undead,Team 6
-Skullsplitter,32109,Humans,Team 6
-Bloodfury,24567,Lizardmen,Team 6
-Goreblade,38901,High Elves,Team 7
-Mangler,20123,Dwarves,Team 7
-Havoc,27654,Goblins,Team 7
-Doom,33456,Chaos Chosen,Team 7
-Anvil,17890,Norse,Team 8
-Shredder,29999,Skaven,Team 8
-Reaper,35123,Dark Elves,Team 8
-Vortex,23456,Vampires,Team 8
-Rubble,30876,Humans,Team 9
-Hearthstone,25678,Undead,Team 9
-Thunderfist,32987,Orcs,Team 9
-Nightshade,19123,Lizardmen,Team 9
-Stonewall,34567,Dwarves,Team 10
-Quicksilver,21098,Wood Elves,Team 10
-Gobstopper,28765,Halflings,Team 10
-Wildfire,36123,Goblins,Team 10
-Rampage,20004,Chaos Chosen,Team 11
-Snarl,27987,Skaven,Team 11
-Boulder,31098,Norse,Team 11
-Windrunner,24321,High Elves,Team 11
-Void,39876,Dark Elves,Team 12
-Smash,22567,Ogre,Team 12
-Miasma,29109,Vampires,Team 12
-Dreadnaught,35432,Tomb Kings,Team 12
-Flinch,18765,Humans,Team 13
-Wraith,33210,Undead,Team 13
-Demolition,26098,Orcs,Team 13
-Swiftspear,30543,Lizardmen,Team 13
-Gravel,23987,Dwarves,Team 14
-Sunder,37210,Wood Elves,Team 14
-Nimblefoot,20876,Halflings,Team 14
-Fanghorn,34987,Goblins,Team 14
-Chaosbringer,28321,Chaos Chosen,Team 15
-Rattlesnake,31765,Skaven,Team 15
-Iceshield,25098,Norse,Team 15
-Solaris,39432,High Elves,Team 15
-Glimmer,21567,Dark Elves,Team 16
-Bulwark,36876,Ogre,Team 16
-Bloodseeker,24098,Vampires,Team 16
-Titan,30005,Tomb Kings,Team 16
+Big Mikowsky,20981,Ogre,Noob Forever Loosers
+Bourpif,19071,Amazons,Los Pintos
+Lord Khan,42712,Skaven,Baff Bazar 2 le retour
+Graneim,37518,Undead,Les chatards sans fierté
+La Murge,30941,Dwarves,Les chats noirs
+Vag,37783,Skaven,Libourne et sa banlieue
+Lothurn,20595,Renegades,Condate redcaps
+Lizardcore,4824,Skaven,Vieux Noobz
+Silsei,20522,Undead,Les Titans
+Mezcal,22469,Chaos Chosen,Les biscuits sanglants
+Dragou,,Ogre,Pirates of wind
+Le démineur,31536,Amazons,LCD
+Coach BB,35818,Ogre,Khornouailles
+Wilhem,29993,Orcs,Tonnerre de Brest
+Budweiser,12987,Slann,Les pilous
+Julien,,Gnome,Les vegetaux
+SkavenA,17337,Nurgle,Sales ptin branques
+Pink Charlie,,Halflings,B#
+Chat ventru,29658,Undead,Les chats noirs du Morbihan
+Paonpaon,,Necromantic,Familly BAF
+Blitzirk,36281,Lizardmen,Compagnie des jeux 44
+Tinmar,non,Norse,Hero Bowl League
+Merlu,18446,Chaos Chosen,Noob Forever Loosers
+Zébulon,13958,Skaven,Los Pintos
+Zogzog,Non,Necromantic,Baff Bazar 2 le retour
+Sipjin,28580,Dwarves,Les chatards sans fierté
+Bluxxt,37485,Amazons,Les chats noirs
+L'asticot,31481,Undead,Libourne et sa banlieue
+Sycod,23487,Necromantic,Condate redcaps
+Maitre tac tac,372,Orcs,Vieux Noobz
+Bigadin,29017,Tomb Kings,Les Titans
+Saerzin,33878,Ogre,Les biscuits sanglants
+Sebotouno,,Nurgle,Pirates of wind
+Darkboy,20848,Lizardmen,LCD
+Hinhinhin,32878,Underworld,Khornouailles
+Captain Blind,34216,Dwarves,Tonnerre de Brest
+Tyra,18660,High Elves,Les pilous
+Gorgbar,noir,Black Orcs,Les vegetaux
+Devaval,non,Necromantic,Sales ptin branques
+Breakyt,,Norse,B#
+Lebouffeurdecrepe,31068,Norse,Les chats noirs du Morbihan
+Captain dady,non,High Elves,Familly BAF
+Bobba frite,Non,Dark Elves,Compagnie des jeux 44
+Youz,non,Lizardmen,Hero Bowl League
+Go The Hakes,18444,Imperial Nobility,Noob Forever Loosers
+Karaak,13455,Undead,Los Pintos
+Khimar,8562,Wood Elves,Baff Bazar 2 le retour
+Nithog,25090,Lizardmen,Les chatards sans fierté
+Latoine,32760,Lizardmen,Les chats noirs
+Firedept,22776,Necromantic,Libourne et sa banlieue
+Parpaing,,Humans,Condate redcaps
+Sladmortis,2464,Tomb Kings,Vieux Noobz
+Dr SLM,25373,Amazons,Les Titans
+Pitounator,36445,Halflings,Les biscuits sanglants
+Tulkas,,Halflings,Pirates of wind
+Davey,17711,OWA,LCD
+Pamynx,33320,Norse,Khornouailles
+Nedgang,31476,Necromantic,Tonnerre de Brest
+Bouzzy,15733,Undead,Les pilous
+Noobzor,,Undead,Les vegetaux
+Pizz,non,Goblins,Sales ptin branques
+Crouch,,Skaven,B#
+Cardiff,22508,Chaos Dwarves,Les chats noirs du Morbihan
+Zazac,non,Nurgle,Familly BAF
+Pingouin ultime,Non,Ogre,Compagnie des jeux 44
+Sergent Thur,non,Dwarves,Hero Bowl League
+Juanolo,19492,Goblins,Noob Forever Loosers
+Grosnain,14524,Norse,Los Pintos
+Dafunkrobot,Non,Goblins,Baff Bazar 2 le retour
+Moukamerde,31349,High Elves,Les chatards sans fierté
+Rimkouille,9829,Ogre,Les chats noirs
+Bagouze,27751,Wood Elves,Libourne et sa banlieue
+Vaheryx,31008,Underworld,Condate redcaps
+Nicap,6984,Norse,Vieux Noobz
+Kopecz,18694,Nurgle,Les Titans
+Gayoc,20594,Nurgle,Les biscuits sanglants
+Helborg,,Goblins,Pirates of wind
+Legrolas,34529,Renegades,LCD
+Novamarine,40552,Slann,Khornouailles
+Cortex,35933,Wood Elves,Tonnerre de Brest
+Rippersly,13335,Chaos Dwarves,Les pilous
+Chucky56,27224,Goblins,Les vegetaux
+Stragen,non,Imperial Nobility,Sales ptin branques
+Historic,,Ogre,B#
+Gauchadroit,39185,Black Orcs,Les chats noirs du Morbihan
+Coco,non,Norse,Familly BAF
+Mike,Non,Wood Elves,Compagnie des jeux 44
+Pierothorax,non,Humans,Hero Bowl League
+

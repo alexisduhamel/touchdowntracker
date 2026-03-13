@@ -156,7 +156,7 @@ def savePairing(round_number, pairing):
             for game in pairing:
                 pA, pB = game[0], game[1]
 
-                row = [''] * (2*header_part_size)
+                row = [''] * len(header)
 
                 row[header.index('TeamA')] = players_dict.get(pA, {}).get('Team', '') if pA != 'BYE' else 'BYE'
                 row[header.index('PlayerA')] = pA
@@ -164,13 +164,34 @@ def savePairing(round_number, pairing):
                 row[header.index('PlayerB')] = pB
 
                 if 'tier' in config['statistics'] + config['additional_statistics']:
-                    row[header.index('tierA')] = players_dict.get(pA, {}).get('tier', '') if pA != 'BYE' else ''
-                    row[header.index('tierB')] = players_dict.get(pB, {}).get('tier', '') if pB != 'BYE' else ''
+                    if 'tierA' in header:
+                        row[header.index('tierA')] = players_dict.get(pA, {}).get('tier', '') if pA != 'BYE' else ''
+                    if 'tierB' in header:
+                        row[header.index('tierB')] = players_dict.get(pB, {}).get('tier', '') if pB != 'BYE' else ''
                 writer.writerow(row)
         else:
-            writer.writerow(['PlayerA', 'PlayerB', 'TouchdownA', 'TouchdownB'])
+            # Individual format: include stats columns in header
+            header = ['PlayerA', 'PlayerB', 'TouchdownA']
+            for stat in config['statistics'] + config['additional_statistics']:
+                if stat not in config['base_statistics']:
+                    header.append(f'{stat}A')
+            header += ['TouchdownB']
+            for stat in config['statistics'] + config['additional_statistics']:
+                if stat not in config['base_statistics']:
+                    header.append(f'{stat}B')
+            writer.writerow(header)
             for game in pairing:
-                writer.writerow([game[0], game[1], '', ''])
+                pA, pB = game[0], game[1]
+                row = [''] * len(header)
+                row[header.index('PlayerA')] = pA
+                row[header.index('PlayerB')] = pB
+                # If tier is tracked, fill tier columns if present
+                if 'tier' in config['statistics'] + config['additional_statistics']:
+                    if 'tierA' in header:
+                        row[header.index('tierA')] = players_dict.get(pA, {}).get('tier', '') if pA != 'BYE' else ''
+                    if 'tierB' in header:
+                        row[header.index('tierB')] = players_dict.get(pB, {}).get('tier', '') if pB != 'BYE' else ''
+                writer.writerow(row)
     log.info(f'{path} saved.')
 
 def savePairingHtml(round_number, pairing):

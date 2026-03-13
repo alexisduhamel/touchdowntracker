@@ -26,7 +26,7 @@ _tie_break_to_stat = {
     'offense'           : 'touchdown_scored',
     'diff'              : 'touchdown_diff',
     'defense'           : 'touchdown_conceded',
-    'casualties'        : 'casualities',
+    'casualties'        : 'casualties',
     'fouls'             : 'fouls',
     'passes'            : 'passes',
     'tier'              : 'tier',
