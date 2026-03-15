@@ -27,7 +27,8 @@ players_file  : config/players_indiv.csv
 indiv_tie_breakers: # Individual ranking tie breakers
   - "wins"
   - "draws"
-  - "diff"
+  - "offense"
+  - "defense"
   - "casualties"
   - "fouls"
 
@@ -47,8 +48,8 @@ team_tie_breakers: # Team ranking tie breakers -- ignore if team_size = 1
 ##   - "losses"             : Tracked by default
 ##   - "touchdowns_scored"  : Tracked by default 
 ##   - "touchdowns_conceded": Tracked by default
-##   - "touchdown_diff"     : Tracked by default
-##   - "casualties"        : Tracked optionally or by default if 'most_casualties' tie break is selected
+##   - "touchdown_diff"     : Tracked optionally or by default if 'diff' tie break is selected
+##   - "casualties"         : Tracked optionally or by default if 'most_casualties' tie break is selected
 ##   - "fouls"              : Tracked optionally or by default if 'most_fouls' tie break is selected
 ##   - "passes"             : Tracked optionally or by default if 'most_passes' tie break is selected
 ##   - "tier"               : Tracked optionally or by default if 'highest_tier' tie break is selected

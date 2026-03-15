@@ -8,13 +8,14 @@ with open('config/config.yaml', 'r', encoding='utf-8') as f:
 # Global argparse setup
 parser = argparse.ArgumentParser(description='Touchdown Tracker')
 parser.add_argument('--loglevel', type=str, default='INFO', help='Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)')
+parser.add_argument('--stats', action='store_true', help='Compute and save statistics without generating the next round')
 args = parser.parse_args()
 
 # Base stats to track
 config['base_statistics'] = [
     'rank', 'points',
     'wins', 'draws', 'losses',
-    'touchdown_scored', 'touchdown_conceded', 'touchdown_diff'
+    'touchdown_scored', 'touchdown_conceded' 
 ]
 
 _stats = config['base_statistics'].copy()

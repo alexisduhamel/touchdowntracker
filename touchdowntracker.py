@@ -6,20 +6,29 @@ import csv
 import logging as log
 from datetime import datetime
 from pathlib import Path
+from typing import Dict, List, Any, Optional
 
 from globals import *
 from utils import *
 
-def get_previous_pairings(rounds_dir='rounds', a_col='PlayerA', b_col='PlayerB'):
+def get_previous_pairings(rounds_dir: str = 'rounds', a_col: str = 'PlayerA', b_col: str = 'PlayerB') -> List[List[str]]:
     """
     Return a list of previous pairings by scanning round CSVs.
     Each element is a pair [A, B].
     """
     prev = []
-    files = [f for f in os.listdir(rounds_dir) if f.endswith('.csv')]
-    for i in range(1, len(files) + 1):
+    # Use pathlib for better path handling and efficiency
+    rounds_path = Path(rounds_dir)
+    if not rounds_path.exists():
+        return prev
+    # Find all round files and sort by round number
+    round_files = sorted(
+        rounds_path.glob('round*.csv'),
+        key=lambda p: int(p.stem.replace('round', ''))
+    )
+    for round_file in round_files:
         try:
-            r = loadRound(f'{rounds_dir}/round{i}.csv')
+            r = loadRound(str(round_file))
         except FileNotFoundError:
             continue
         if not r:
@@ -33,7 +42,7 @@ def get_previous_pairings(rounds_dir='rounds', a_col='PlayerA', b_col='PlayerB')
             prev.append([row[a_idx], row[b_idx]])
     return prev
 
-def generatePairing(round_number, players_dict, stats_dict, team_stats=None):
+def generatePairing(round_number: int, players_dict: Dict[str, Dict[str, Any]], stats_dict: Dict[str, Dict[str, Any]], team_stats: Optional[Dict[str, Dict[str, Any]]] = None) -> List[List[str]]:
     """
     Generate Swiss pairings for the given round.
     Supports both team-based and individual pairings, avoiding repeat matchups.
@@ -105,7 +114,7 @@ def generatePairing(round_number, players_dict, stats_dict, team_stats=None):
             pairings = dfs_recursive(players_dict, stats_dict, prev_games)
             return pairings
 
-def dfs_recursive(players_dict, stats_dict, prev_games, pairings=None):
+def dfs_recursive(players_dict: Dict[str, Dict[str, Any]], stats_dict: Dict[str, Dict[str, Any]], prev_games: List[List[str]], pairings: Optional[List[List[str]]] = None) -> Optional[List[List[str]]]:
     """
     Recursively generate valid player pairings using DFS, avoiding repeat matchups.
     Returns a list of pairings.
@@ -147,7 +156,10 @@ def dfs_recursive(players_dict, stats_dict, prev_games, pairings=None):
     log.debug('No valid pairings found, returning empty list')
     return []
 
-def dfs_team_recursive(sorted_teams, prev_games, pairings=None):
+def dfs_team_recursive(sorted_teams: List[str], prev_games: List[List[str]], pairings: Optional[List[List[str]]] = None) -> Optional[List[List[str]]]:
+    """
+    Recursively generate valid team pairings using DFS, avoiding repeat matchups.
+    """
     if pairings is None:
         pairings = []
     log.debug(f'dfs_team_recursive called with pairings: {pairings}')
@@ -184,7 +196,7 @@ def dfs_team_recursive(sorted_teams, prev_games, pairings=None):
     pairings.append([t1, 'BYE'])
     return pairings
 
-def updateStats(players, stats, last_round):
+def updateStats(players: List[str], stats: Dict[str, Dict[str, Any]], last_round: List[List[str]]) -> Dict[str, Dict[str, Any]]:
     """
     Update player statistics based on the results of the last round.
     Returns a dictionary of updated stats, sorted and ranked.
@@ -223,8 +235,9 @@ def updateStats(players, stats, last_round):
                     # Update touchdowns scored/conceded (always first two columns after player names)
                     stats[player]["touchdown_scored"]   += tdA if pA == player else tdB
                     stats[player]["touchdown_conceded"] += tdB if pA == player else tdA
-                    stats[player]["touchdown_diff"]     = stats[player]["touchdown_scored"] - stats[player]["touchdown_conceded"]
-                    
+                    if "touchdown_diff" in config['statistics'] or "touchdown_diff" in config['additional_statistics']:
+                        stats[player]["touchdown_diff"]     = stats[player]["touchdown_scored"] - stats[player]["touchdown_conceded"]
+
                     # Headers are taken from the first row of last_round
                     # variable 'headers' was set above when idx==0
                     
@@ -270,7 +283,7 @@ def updateStats(players, stats, last_round):
         ranked_stats[player]["rank"] = rank
     return ranked_stats
 
-def updateTeamStats(players_dict, stats_dict, team_stats, last_round):
+def updateTeamStats(players_dict: Dict[str, Dict[str, Any]], stats_dict: Dict[str, Dict[str, Any]], team_stats: Dict[str, Dict[str, Any]], last_round: List[List[str]]) -> Dict[str, Dict[str, Any]]:
     """
     Aggregate player statistics into team statistics.
     Returns a dictionary of team stats, sorted by performance using team_tie_breakers.
@@ -357,11 +370,8 @@ def updateTeamStats(players_dict, stats_dict, team_stats, last_round):
     return sorted_teams
 
 if __name__ == '__main__':
-
-    # Create log directory if it doesn't exist
+    # Setup logging infrastructure
     Path('log').mkdir(exist_ok=True)
-
-    # Create filename with current time
     log_time = datetime.now().strftime('%Y%m%d_%H%M%S')
     log_filename = f'log/log_{log_time}.log'
 
@@ -369,7 +379,7 @@ if __name__ == '__main__':
     formatter = log.Formatter('%(levelname)s - %(message)s')
     log.basicConfig(format='%(levelname)s - %(message)s', level=args.loglevel.upper())
 
-    # Add file handler
+    # Add file handler for persistent logging
     file_handler = log.FileHandler(log_filename)
     file_handler.setFormatter(formatter)
     log.getLogger().addHandler(file_handler)
@@ -377,24 +387,27 @@ if __name__ == '__main__':
     log.info(f'Touchdown Tracker v{version}')
     log.debug(f'Config: {config}')
 
+    # Seed random number generator for reproducible pairings
     random.seed(config['random_seed'])
 
-    # Load players info
+    # Load player data from configuration file
     players_dict = loadPlayers(filepath=config['players_file'])
 
-    # Compute statistics
+    # Determine current round number based on existing round files
     round_number = len([f for f in os.listdir('rounds/') if f.endswith('.csv')]) + 1
     log.info(f'Round number: {round_number}')
     team_stats = {}
-    if (round_number>1):
-        log.info(f'Computing statistics...')
-        # Remove statistics.csv and team_statistics.csv from stats/ if they exist
+    
+    # Compute statistics from previous rounds if any exist
+    if round_number > 1:
+        log.info('Computing statistics...')
+        # Clean up old statistics files
         if os.path.exists('stats/statistics.csv'):
             os.remove('stats/statistics.csv')
         if os.path.exists('stats/team_statistics.csv'):
             os.remove('stats/team_statistics.csv')
 
-        # Load and aggregate stats from previous rounds
+        # Aggregate stats from all previous rounds
         stats_dict = {}
         for round_idx in range(1, round_number):
             log.info(f'...from round {round_idx}')
@@ -403,17 +416,18 @@ if __name__ == '__main__':
             if config.get('team_size', 1) > 1:
                 team_stats = updateTeamStats(players_dict, stats_dict, team_stats, round_data)
         
-        # Save updated statistics
+        # Persist updated statistics
         saveStats(stats_dict)
         if config.get('team_size', 1) > 1:
             saveTeamStats(team_stats)
     else:
         stats_dict = {}
 
-    # Generate next round
-    log.info(f'Generating round {round_number}...')
-    pairings=generatePairing(round_number, players_dict, stats_dict, team_stats)
-    if pairings != []:
-        savePairing(round_number, pairings)
-        savePairingHtml(round_number, pairings)
+    # Generate next round pairings unless in stats-only mode
+    if not args.stats:
+        log.info(f'Generating round {round_number}...')
+        pairings = generatePairing(round_number, players_dict, stats_dict, team_stats)
+        if pairings:
+            savePairing(round_number, pairings, players_dict)
+            savePairingHtml(round_number, pairings, players_dict)
 

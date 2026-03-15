@@ -2,11 +2,13 @@
 import csv
 import logging as log
 import yaml
+from html import escape
+from typing import Dict, List, Any
 
 from pathlib import Path
 from globals import *
 
-def loadPlayers(filepath='config/players.csv'):
+def loadPlayers(filepath: str = 'config/players.csv') -> Dict[str, Dict[str, Any]]:
     """
     Load player data from a CSV file into a dictionary.
     Each player is keyed by name, with their attributes as values.
@@ -46,7 +48,6 @@ def loadPlayers(filepath='config/players.csv'):
         config['teams'] = teams
     
     # If we track tier, assign values based on tiers.yaml
-
     if 'tier' in config['statistics']:
         with open('config/tiers.yaml', 'r', encoding='utf-8') as f:
             tiers = yaml.safe_load(f)
@@ -124,7 +125,7 @@ def loadRound(filepath='rounds/round1.csv'):
             round.append(row)
     return round
 
-def savePairing(round_number, pairing):
+def savePairing(round_number: int, pairing: List[List[str]], players_dict: Dict[str, Dict[str, Any]]) -> None:
     """
     Save the pairings for a round to a CSV file.
     Handles both team and individual formats.
@@ -133,11 +134,7 @@ def savePairing(round_number, pairing):
     path = Path(filepath)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Need access to players_dict for team info
-    from inspect import currentframe
-    frame = currentframe()
-    players_dict = frame.f_back.f_locals.get('players_dict', {})
-    team_size = int(config.get('team_size', 1))
+    # players_dict is now passed as parameter
 
     with open(path, mode='w', encoding='utf-8', newline="") as file:
         writer = csv.writer(file)
@@ -194,7 +191,7 @@ def savePairing(round_number, pairing):
                 writer.writerow(row)
     log.info(f'{path} saved.')
 
-def savePairingHtml(round_number, pairing):
+def savePairingHtml(round_number: int, pairing: List[List[str]], players_dict: Dict[str, Dict[str, Any]]) -> None:
     """
     Save the pairings for a round to an HTML file.
     Handles both team and individual formats and mirrors savePairing's
@@ -204,23 +201,18 @@ def savePairingHtml(round_number, pairing):
     path = Path(filepath)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Need access to players_dict for team info
-    from inspect import currentframe
-    from html import escape
-    frame = currentframe()
-    players_dict = frame.f_back.f_locals.get('players_dict', {})
-    team_size = int(config.get('team_size', 1))
+    # players_dict is now passed as parameter
 
     with open(path, mode='w', encoding='utf-8') as file:
 
         file.write('<html><head>\n')
-        file.write('    <title>Round {}</title>\n'.format(round_number))
+        file.write(f'    <title>Round {round_number}</title>\n')
         file.write('    <style>\n')
         file.write('        table, th, td { text-align: center; }\n')
         file.write('    </style>\n')
         file.write('</head>\n')
         file.write('<body>\n')
-        file.write('<h1>Round {}</h1>\n'.format(round_number))
+        file.write(f'<h1>Round {round_number}</h1>\n')
 
 
         if team_size > 1:
@@ -277,7 +269,7 @@ def savePairingHtml(round_number, pairing):
             # individual format
             file.write('<tr><th>Player A</th><th>Player B</th><th>Touchdown A</th><th>Touchdown B</th></tr>\n')
             for game in pairing:
-                file.write('<tr><td>{}</td><td>{}</td><td></td><td></td></tr>\n'.format(escape(game[0]), escape(game[1])))
+                file.write(f'<tr><td>{escape(game[0])}</td><td>{escape(game[1])}</td><td></td><td></td></tr>\n')
 
         file.write('</table>\n')
         file.write('</body></html>\n')
@@ -312,3 +304,98 @@ def saveTeamStats(team_stats, filepath='stats/team_statistics.csv'):
         for team, stats in team_stats.items():
             writer.writerow([team] + [stats.get(stat, 0) for stat in (config['statistics'] + config['additional_statistics'])])
     log.info(f'{filepath} saved.')
+
+def xml_naf_export():
+    """
+    Generate NAF export XML from round CSV files and players data.
+    """
+    # Race mapping to match XML format
+    race_map = {
+        'Orcs': 'Orc',
+        'Bretonians': 'Bretonnian',
+        'Wood Elves': 'Wood Elf',
+        'Dark Elves': 'Dark Elf',
+        'Necromantics': 'Necromantic Horror',
+        'Imperial Nobility': 'Imperial Nobility',
+        'Humans': 'Human'
+    }
+
+    # Load players from config/players_indiv.csv
+    players = {}
+    with open('config/players_indiv.csv', 'r', encoding='utf-8') as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        for row in reader:
+            player, naf, race = row[0], int(row[1]), row[2]
+            players[player] = {'naf': naf, 'race': race_map.get(race, race)}
+
+    # Collect unique coaches
+    coaches = set()
+    for player, data in players.items():
+        if data['naf'] == 9:
+            name = 'Non-NAF'
+        else:
+            name = player
+        coaches.add((name, data['naf'], data['race']))
+
+    # Load games from rounds CSV files
+    games = []
+    rounds_nb = len(list(Path('rounds').glob('round*.csv')))
+    for round_num in range(1, rounds_nb + 1):
+        with open(f'rounds/round{round_num}.csv', 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            for row in reader:
+                playerA, playerB, tdA, casA, foulsA, tdB, casB, foulsB = row
+                tdA, casA, tdB, casB = int(tdA), int(casA), int(tdB), int(casB)
+
+                # Determine name and number for playerA
+                if players[playerA]['naf'] == 9:
+                    nameA = 'Non-NAF'
+                    numA = 9
+                else:
+                    nameA = playerA
+                    numA = players[playerA]['naf']
+
+                # Determine name and number for playerB
+                if players[playerB]['naf'] == 9:
+                    nameB = 'Non-NAF'
+                    numB = 9
+                else:
+                    nameB = playerB
+                    numB = players[playerB]['naf']
+
+                games.append({
+                    'playerA': {'name': nameA, 'number': numA, 'touchDowns': tdA, 'badlyHurt': casA},
+                    'playerB': {'name': nameB, 'number': numB, 'touchDowns': tdB, 'badlyHurt': casB}
+                })
+
+    # Build XML string with matching formatting
+    xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    xml_content += '<nafReport xmlns:blo="http://www.bloodbowl.net">\n'
+    xml_content += '<organiser></organiser>\n'
+    xml_content += '<coaches>\n'
+    for name, number, team in sorted(coaches):
+        xml_content += '<coach>\n'
+        xml_content += f'<name>{name}</name>\n'
+        xml_content += f'<number>{number}</number>\n'
+        xml_content += f'<team>{team}</team>\n'
+        xml_content += '</coach>\n'
+    xml_content += '</coaches>\n'
+    for game in games:
+        xml_content += '<game>\n'
+        xml_content += '<timeStamp>2026-03-15 16:03</timeStamp>\n'
+        for player_key in ['playerA', 'playerB']:
+            xml_content += '<playerRecord>\n'
+            xml_content += f'<name>{game[player_key]["name"]}</name>\n'
+            xml_content += f'<number>{game[player_key]["number"]}</number>\n'
+            xml_content += '<teamRating>115</teamRating>\n'
+            xml_content += f'<touchDowns>{game[player_key]["touchDowns"]}</touchDowns>\n'
+            xml_content += f'<badlyHurt>{game[player_key]["badlyHurt"]}</badlyHurt>\n'
+            xml_content += '</playerRecord>\n'
+        xml_content += '</game>\n'
+    xml_content += '</nafReport>\n'
+
+    # Write to export/export.xml
+    with open('export/export.xml', 'w', encoding='utf-8') as f:
+        f.write(xml_content)
